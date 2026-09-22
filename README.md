@@ -77,6 +77,262 @@ This is a **complaint management system** that helps organizations:
 
 ## Low-Level Design (LLD)
 
+### Database Schema (ER Diagram)
+
+**Mermaid Diagram (renders in GitHub, GitLab, etc.):**
+
+```mermaid
+erDiagram
+    Company ||--o{ User : "has"
+    Company ||--o{ Region : "has"
+    Company ||--o{ ComplaintCategory : "has"
+    Company ||--o{ ComplaintChannel : "has"
+    Company ||--o{ PriorityConfig : "has"
+    Company ||--o{ SLAPolicy : "has"
+
+    Role ||--o{ User : "defines"
+    Region ||--o{ User : "assigns"
+    Region ||--o{ Store : "contains"
+    Region ||--o{ Complaint : "belongs to"
+    Region ||--o{ SLAPolicy : "defines"
+    Store ||--o{ Complaint : "located at"
+
+    User ||--o{ Complaint : "assigns as agent"
+    User ||--o{ ComplaintComment : "writes"
+    User ||--o{ AuditLog : "performs"
+    User ||--o{ Notification : "receives"
+
+    CustomerProfile ||--o{ Complaint : "submits"
+    CustomerProfile ||--o{ Company : "belongs to"
+
+    ComplaintCategory ||--o{ Complaint : "classifies"
+    ComplaintCategory ||--o{ SLAPolicy : "defines for"
+
+    ComplaintChannel ||--o{ Complaint : "receives via"
+    PriorityConfig ||--o{ Complaint : "assigns"
+    PriorityConfig ||--o{ SLAPolicy : "defines for"
+
+    Complaint ||--o{ ComplaintAssignment : "has"
+    Complaint ||--o{ ComplaintComment : "has"
+    Complaint ||--o{ ComplaintStatusHistory : "tracks"
+    Complaint ||--o{ Notification : "triggers"
+    Complaint ||--o{ Conversation : "has"
+
+    SLAPolicy ||--o{ SLARecord : "generates"
+```
+
+**ASCII Version:**
+
+```
+┌─────────────┐
+│   Company   │
+└──────┬──────┘
+       │
+       ├──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+       ▼                  ▼                  ▼                  ▼                  ▼                  ▼
+┌─────────────┐    ┌─────────────┐    ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│    User     │    │   Region    │    │ ComplaintCategory │ │ ComplaintChannel │ │  PriorityConfig  │ │    SLAPolicy     │
+└──────┬──────┘    └──────┬──────┘    └────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘
+       │                  │                    │                    │                    │                    │
+       │                  │                    │                    │                    │                    │
+       │                  ├──────────┬─────────┤                    │                    │                    │
+       │                  │          │         │                    │                    │                    │
+       ▼                  ▼          ▼         ▼                    ▼                    ▼                    ▼
+┌─────────────┐    ┌─────────────┐  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│    Role     │    │    Store    │  │  Complaint  │    │  Complaint  │    │  Complaint  │    │   SLARecord  │
+└─────────────┘    └─────────────┘  └──────┬──────┘    └─────────────┘    └─────────────┘    └─────────────┘
+                                         │
+                                         │
+                       ┌─────────────────┼─────────────────┬─────────────────┐
+                       │                 │                 │                 │
+                       ▼                 ▼                 ▼                 ▼
+              ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+              │   Comment   │  │ Assignment  │  │ StatusHist  │  │ Notification │
+              └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
+
+┌─────────────────┐
+│ CustomerProfile │───┬─── Complaint
+└─────────────────┘   │
+                       └─── Company
+```
+
+### API Request Flow
+
+**Mermaid Diagram:**
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Frontend
+    participant Backend
+    participant Auth
+    participant Service
+    participant Repo
+    participant DB
+
+    Client->>Frontend: Login Request
+    Frontend->>Backend: POST /api/v1/auth/login
+    Backend->>Auth: Validate credentials
+    Auth->>Repo: Find user
+    Repo->>DB: Query user
+    DB-->>Repo: User data
+    Repo-->>Auth: User
+    Auth->>Auth: Generate JWT
+    Auth-->>Backend: Access token
+    Backend-->>Frontend: Token + user data
+    Frontend->>Frontend: Store token
+    Frontend-->>Client: Redirect to dashboard
+
+    Client->>Frontend: View complaints
+    Frontend->>Backend: GET /api/v1/complaints (with token)
+    Backend->>Auth: Verify JWT
+    Auth-->>Backend: User context
+    Backend->>Service: Get complaints for user
+    Service->>Repo: Query with role scope
+    Repo->>DB: Filtered query
+    DB-->>Repo: Complaints
+    Repo-->>Service: Complaints
+    Service-->>Backend: Complaints
+    Backend-->>Frontend: Complaints data
+    Frontend-->>Client: Display complaints
+```
+
+**ASCII Version:**
+
+```
+LOGIN FLOW:
+┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
+│  Client  │─────▶│ Frontend │─────▶│ Backend  │─────▶│   Auth   │─────▶│   Repo   │─────▶│    DB    │
+└──────────┘      └──────────┘      └──────────┘      └──────────┘      └──────────┘      └──────────┘
+                      │                    │                    │                    │                    │
+                      │                    │                    │◀───────────────────│◀───────────────────│
+                      │                    │                    │                    │                    │
+                      │◀───────────────────│◀───────────────────│                    │                    │
+                      │                    │                    │                    │                    │
+                      │                    │                    │───────────────────▶│                    │
+                      │                    │                    │                    │                    │
+                      │                    │                    │◀───────────────────│                    │
+                      │                    │                    │                    │                    │
+                      │◀───────────────────│◀───────────────────│                    │                    │
+                      │                    │                    │                    │                    │
+                      │                    │                    │                    │                    │
+
+DATA FETCH FLOW:
+┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
+│  Client  │─────▶│ Frontend │─────▶│ Backend  │─────▶│   Auth   │─────▶│  Service │─────▶│   Repo   │─────▶│    DB    │
+└──────────┘      └──────────┘      └──────────┘      └──────────┘      └──────────┘      └──────────┘      └──────────┘
+                      │                    │                    │                    │                    │                    │
+                      │                    │                    │◀───────────────────│                    │                    │
+                      │                    │                    │                    │                    │
+                      │                    │                    │───────────────────▶│───────────────────▶│
+                      │                    │                    │                    │                    │
+                      │                    │                    │◀───────────────────│◀───────────────────│◀───────────────────│
+                      │                    │                    │                    │                    │
+                      │◀───────────────────│◀───────────────────│                    │                    │
+                      │                    │                    │                    │                    │
+```
+
+### Component Architecture
+
+**Mermaid Diagram:**
+
+```mermaid
+graph TB
+    subgraph Frontend
+        UI[React Components]
+        Auth[AuthProvider]
+        API[API Client]
+        Query[TanStack Query]
+    end
+
+    subgraph Backend
+        Router[Express Router]
+        Controller[Controllers]
+        Service[Services]
+        Repo[Repositories]
+        Middleware[Middleware]
+    end
+
+    subgraph Data
+        Prisma[Prisma ORM]
+        PG[PostgreSQL]
+    end
+
+    subgraph Integrations
+        Email[Email Polling]
+        YouTube[YouTube Polling]
+        AI[AI Service]
+    end
+
+    UI --> Auth
+    UI --> Query
+    Query --> API
+    Auth --> API
+    API --> Router
+    Router --> Middleware
+    Middleware --> Controller
+    Controller --> Service
+    Service --> Repo
+    Repo --> Prisma
+    Prisma --> PG
+
+    Email --> Service
+    YouTube --> Service
+    AI --> Service
+```
+
+**ASCII Version:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND LAYER                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐         │
+│  │   React UI   │───▶│ AuthProvider │───▶│ TanStack Qry │───▶│  API Client  │         │
+│  └──────────────┘    └──────────────┘    └──────────────┘    └──────┬───────┘         │
+│                                                                           │               │
+└───────────────────────────────────────────────────────────────────────────┼───────────────┘
+                                                                            │ HTTP
+                                                                            ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              BACKEND LAYER                                               │
+│                                                                           │               │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐         │
+│  │   Express    │◀───│  Middleware  │◀───│ Controllers  │◀───│   Services   │         │
+│  │    Router    │    │ (Auth/Valid) │    │              │    │              │         │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘    └──────┬───────┘         │
+│                                           │                    │                    │
+│                                           │                    │                    │
+│                                           ▼                    ▼                    │
+│                                  ┌──────────────┐    ┌──────────────┐               │
+│                                  │ Repositories │───▶│   Prisma ORM │               │
+│                                  └──────────────┘    └──────┬───────┘               │
+└───────────────────────────────────────────────────────────────────┼───────────────────┘
+                                                                            │
+                                                                            ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              DATA LAYER                                                  │
+│                                                                           │               │
+│  ┌──────────────────────────────────────────────────────────────────────┐              │
+│  │                         PostgreSQL                                    │              │
+│  └──────────────────────────────────────────────────────────────────────┘              │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                         INTEGRATION LAYER                                                │
+│                                                                           │               │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐         │
+│  │ Email Polling│───▶│YouTube Poll  │───▶│  AI Service  │───▶│  Storage     │         │
+│  │  (IMAP)      │    │   (API)      │    │ (OpenAI/Mock)│    │  (Local/S3)  │         │
+│  └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘         │
+│                                                                           │               │
+└───────────────────────────────────────────────────────────────────────────┼───────────────┘
+                                                                            │
+                                                                            ▼
+                                                                    ┌──────────────┐
+                                                                    │  Services    │
+                                                                    └──────────────┘
+```
+
 ### Database Schema
 
 **Core Entities:**
