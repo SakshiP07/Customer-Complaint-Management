@@ -1,0 +1,601 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  CUSTOMER
+  AGENT
+  OPERATIONS_MANAGER
+  REGIONAL_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ComplaintStatus {
+  NEW
+  CATEGORISED
+  ASSIGNED
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
+  ESCALATED
+  REOPENED
+}
+
+enum SlaStatus {
+  ON_TRACK
+  APPROACHING
+  OVERDUE
+  MET
+  BREACHED
+}
+
+enum CommentVisibility {
+  CUSTOMER
+  INTERNAL
+}
+
+enum EscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum EscalationType {
+  AGENT
+  MANAGER
+  SLA
+}
+
+enum MessageSender {
+  CUSTOMER
+  EMPLOYEE
+  SYSTEM
+  AI
+}
+
+enum MessageDeliveryStatus {
+  PREPARED
+  DEMO_SENT
+  SENT
+  FAILED
+}
+
+model Company {
+  id                  String   @id @default(uuid())
+  name                String   @unique
+  slug                String   @unique
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  users                  User[]
+  customerProfiles       CustomerProfile[]
+  complaints             Complaint[]
+  regions                Region[]
+  stores                 Store[]
+  complaintCategories    ComplaintCategory[]
+  complaintChannels      ComplaintChannel[]
+  priorityConfigs        PriorityConfig[]
+  slaPolicies            SLAPolicy[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+  aiAnalyses             AIAnalysis[]
+  conversations          Conversation[]
+  conversationMessages    ConversationMessage[]
+  emailIntegrations      EmailIntegration[]
+  youtubeIntegrations    YouTubeIntegration[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  code        RoleCode @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  roleId       String
+  companyId    String?
+  regionId     String?
+  storeId      String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  role                  Role                     @relation(fields: [roleId], references: [id])
+  company               Company?                 @relation(fields: [companyId], references: [id])
+  region                Region?                  @relation(fields: [regionId], references: [id])
+  store                 Store?                   @relation(fields: [storeId], references: [id])
+  customerProfile       CustomerProfile?
+  assignedComplaints    Complaint[]              @relation("AssignedAgent")
+  comments              ComplaintComment[]
+  attachments           ComplaintAttachment[]
+  statusHistory         ComplaintStatusHistory[]
+  assignmentsMade       ComplaintAssignment[]    @relation("AssignedBy")
+  assignmentsReceived   ComplaintAssignment[]    @relation("AssignedTo")
+  escalationsMade       Escalation[]             @relation("EscalatedBy")
+  escalationsReceived   Escalation[]             @relation("EscalatedTo")
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  refreshTokens         RefreshToken[]
+  aiAnalyses            AIAnalysis[]
+  conversationMessages  ConversationMessage[]
+
+  @@index([email])
+  @@index([roleId])
+  @@index([companyId])
+  @@index([regionId])
+  @@index([storeId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model CustomerProfile {
+  id                     String      @id @default(uuid())
+  userId                 String?     @unique
+  companyId              String?
+  name                   String
+  email                  String
+  phone                  String?
+  preferredContactMethod String      @default("EMAIL")
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  user                   User?       @relation(fields: [userId], references: [id])
+  company                Company?    @relation(fields: [companyId], references: [id])
+  complaints             Complaint[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([companyId])
+}
+
+model Region {
+  id          String      @id @default(uuid())
+  companyId   String?
+  name        String
+  code        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  company     Company?    @relation(fields: [companyId], references: [id])
+  stores      Store[]
+  users       User[]
+  complaints  Complaint[]
+  slaPolicies SLAPolicy[]
+
+  @@index([companyId])
+}
+
+model Store {
+  id         String      @id @default(uuid())
+  companyId  String?
+  name       String
+  code       String      @unique
+  address    String
+  city       String
+  state      String
+  regionId   String
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  company    Company?    @relation(fields: [companyId], references: [id])
+  region     Region      @relation(fields: [regionId], references: [id])
+  users      User[]
+  complaints Complaint[]
+
+  @@index([companyId])
+  @@index([regionId])
+  @@index([city])
+}
+
+model ComplaintCategory {
+  id          String      @id @default(uuid())
+  companyId   String?
+  name        String      @unique
+  code        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  company     Company?    @relation(fields: [companyId], references: [id])
+  complaints  Complaint[]
+  slaPolicies SLAPolicy[]
+
+  @@index([companyId])
+}
+
+model ComplaintChannel {
+  id          String      @id @default(uuid())
+  companyId   String?
+  name        String
+  code        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  adapterKey  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  company     Company?    @relation(fields: [companyId], references: [id])
+  complaints  Complaint[]
+
+  @@index([companyId])
+}
+
+model PriorityConfig {
+  id          String      @id @default(uuid())
+  companyId   String?
+  code        String      @unique
+  name        String
+  rank        Int
+  color       String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  company     Company?    @relation(fields: [companyId], references: [id])
+  slaPolicies SLAPolicy[]
+
+  @@index([companyId])
+}
+
+model SLAPolicy {
+  id                        String             @id @default(uuid())
+  companyId                 String?
+  name                      String
+  priorityCode              String
+  categoryId                String?
+  regionId                  String?
+  responseTimeMinutes       Int
+  resolutionTimeMinutes     Int
+  escalationThresholdMinutes Int
+  approachingPercent        Int                @default(80)
+  isActive                  Boolean            @default(true)
+  isDemo                    Boolean            @default(true)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  company                   Company?            @relation(fields: [companyId], references: [id])
+  priority                  PriorityConfig     @relation(fields: [priorityCode], references: [code])
+  category                  ComplaintCategory? @relation(fields: [categoryId], references: [id])
+  region                    Region?            @relation(fields: [regionId], references: [id])
+  slaRecords                SLARecord[]
+
+  @@index([companyId])
+  @@index([priorityCode])
+  @@index([categoryId])
+  @@index([regionId])
+  @@index([isActive])
+}
+
+model Complaint {
+  id              String           @id @default(uuid())
+  complaintNumber String           @unique
+  customerId      String
+  companyId       String?
+  channelId       String
+  categoryId      String?
+  priority        String           @default("MEDIUM")
+  status          ComplaintStatus  @default(NEW)
+  subject         String?
+  description     String
+  regionId        String
+  storeId         String?
+  assignedAgentId String?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  slaDueAt        DateTime?
+  slaStatus       SlaStatus        @default(ON_TRACK)
+  resolution      String?
+  closureReason   String?
+  reopenReason    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  company        Company?                 @relation(fields: [companyId], references: [id])
+  customer       CustomerProfile          @relation(fields: [customerId], references: [id])
+  channel        ComplaintChannel         @relation(fields: [channelId], references: [id])
+  category       ComplaintCategory?       @relation(fields: [categoryId], references: [id])
+  region         Region                   @relation(fields: [regionId], references: [id])
+  store          Store?                   @relation(fields: [storeId], references: [id])
+  assignedAgent  User?                    @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  history        ComplaintStatusHistory[]
+  comments       ComplaintComment[]
+  attachments    ComplaintAttachment[]
+  assignments    ComplaintAssignment[]
+  slaRecords     SLARecord[]
+  escalations    Escalation[]
+  aiAnalyses     AIAnalysis[]
+  conversation   Conversation?
+
+  @@index([complaintNumber])
+  @@index([status])
+  @@index([priority])
+  @@index([categoryId])
+  @@index([channelId])
+  @@index([regionId])
+  @@index([storeId])
+  @@index([assignedAgentId])
+  @@index([createdAt])
+  @@index([slaDueAt])
+  @@index([customerId])
+  @@index([companyId])
+  @@index([slaStatus])
+}
+
+model ComplaintSequence {
+  year       Int @id
+  lastNumber Int @default(0)
+}
+
+model ComplaintStatusHistory {
+  id                 String    @id @default(uuid())
+  complaintId        String
+  changedById        String?
+  actionType         String
+  previousStatus     String?
+  newStatus          String?
+  previousPriority   String?
+  newPriority        String?
+  previousAssigneeId String?
+  newAssigneeId      String?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  complaint          Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  changedBy          User?     @relation(fields: [changedById], references: [id])
+
+  @@index([complaintId])
+  @@index([createdAt])
+}
+
+model ComplaintComment {
+  id          String             @id @default(uuid())
+  complaintId String
+  authorId    String?
+  authorName  String?
+  comment     String
+  visibility  CommentVisibility
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  complaint   Complaint          @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  author      User?              @relation(fields: [authorId], references: [id])
+
+  @@index([complaintId])
+}
+
+model ComplaintAttachment {
+  id              String    @id @default(uuid())
+  complaintId     String
+  uploadedById    String?
+  fileName        String
+  mimeType        String
+  size            Int
+  storagePath     String
+  storageProvider String    @default("LOCAL")
+  createdAt       DateTime  @default(now())
+  complaint       Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  uploadedBy      User?     @relation(fields: [uploadedById], references: [id])
+
+  @@index([complaintId])
+}
+
+model ComplaintAssignment {
+  id           String    @id @default(uuid())
+  complaintId  String
+  assignedToId String
+  assignedById String?
+  reason       String?
+  createdAt    DateTime  @default(now())
+  complaint    Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  assignedTo   User      @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedBy   User?     @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@index([complaintId])
+  @@index([assignedToId])
+}
+
+model SLARecord {
+  id                   String     @id @default(uuid())
+  complaintId          String
+  slaPolicyId          String
+  responseDueAt        DateTime
+  resolutionDueAt      DateTime
+  firstRespondedAt     DateTime?
+  resolvedAt           DateTime?
+  responseBreached     Boolean    @default(false)
+  resolutionBreached   Boolean    @default(false)
+  approachingNotifiedAt DateTime?
+  breachedNotifiedAt   DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  complaint            Complaint  @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  slaPolicy            SLAPolicy  @relation(fields: [slaPolicyId], references: [id])
+
+  @@index([complaintId])
+  @@index([resolutionDueAt])
+}
+
+model Escalation {
+  id            String            @id @default(uuid())
+  complaintId   String
+  escalatedById String?
+  escalatedToId String?
+  reason        String
+  priority      String
+  status        EscalationStatus  @default(OPEN)
+  type          EscalationType
+  createdAt     DateTime          @default(now())
+  resolvedAt    DateTime?
+  complaint     Complaint         @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  escalatedBy   User?             @relation("EscalatedBy", fields: [escalatedById], references: [id])
+  escalatedTo   User?             @relation("EscalatedTo", fields: [escalatedToId], references: [id])
+
+  @@index([complaintId])
+  @@index([status])
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  companyId  String?
+  type       String
+  title      String
+  message    String
+  entityType String?
+  entityId   String?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company    Company? @relation(fields: [companyId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  companyId  String?
+  actorEmail String?
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+  company    Company? @relation(fields: [companyId], references: [id])
+
+  @@index([actorId])
+  @@index([companyId])
+  @@index([action])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model AIAnalysis {
+  id                  String    @id @default(uuid())
+  complaintId         String
+  companyId           String?
+  provider            String
+  suggestedCategoryId String?
+  suggestedPriority   String?
+  summary             String?
+  suggestedResponse   String?
+  suggestedNextSteps  Json?
+  similarComplaintIds Json?
+  patternNotes        String?
+  confidence          Float?
+  status              String    @default("SUGGESTED")
+  reviewedById        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  company             Company?   @relation(fields: [companyId], references: [id])
+  complaint           Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  reviewedBy          User?     @relation(fields: [reviewedById], references: [id])
+
+  @@index([complaintId])
+  @@index([companyId])
+}
+
+model Conversation {
+  id          String                 @id @default(uuid())
+  complaintId String                 @unique
+  companyId   String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  company     Company?                @relation(fields: [companyId], references: [id])
+  complaint   Complaint              @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  messages    ConversationMessage[]
+
+  @@index([companyId])
+}
+
+model ConversationMessage {
+  id             String                 @id @default(uuid())
+  conversationId String
+  companyId      String?
+  senderType     MessageSender
+  authorId       String?
+  authorName     String?
+  body           String
+  deliveryStatus MessageDeliveryStatus  @default(PREPARED)
+  channelCode    String?
+  createdAt      DateTime               @default(now())
+  conversation   Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  company        Company?                @relation(fields: [companyId], references: [id])
+  author         User?                  @relation(fields: [authorId], references: [id])
+
+  @@index([conversationId])
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model EmailIntegration {
+  id           String   @id @default(uuid())
+  companyId    String
+  imapHost     String
+  imapPort     Int
+  imapUser     String
+  imapPassword String
+  imapTls      Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  company      Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([isActive])
+}
+
+model YouTubeIntegration {
+  id        String   @id @default(uuid())
+  companyId String
+  channelId String
+  apiKey    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([isActive])
+}
