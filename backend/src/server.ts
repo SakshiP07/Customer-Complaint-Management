@@ -8,11 +8,21 @@ import { logger } from "./utils/logger.js";
 
 const app = createApp();
 
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled Rejection:", { reason: String(reason) });
+});
+
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught Exception:", { error: error.message, stack: error.stack });
+});
+
 const server = app.listen(env.PORT, () => {
   logger.info(`API listening on ${env.PORT}`);
-  if (env.NODE_ENV !== "test") startSlaMonitor();
-  if (env.NODE_ENV !== "test") emailPollingService.startPolling(0.17); // ~10 seconds
-  if (env.NODE_ENV !== "test") youtubePollingService.startPolling(0.25); // ~15 seconds
+  if (env.NODE_ENV !== "test") {
+    startSlaMonitor();
+    emailPollingService.startPolling(8).catch((err) => logger.warn("Email polling error on init:", err));
+    youtubePollingService.startPolling(8);
+  }
 });
 
 async function shutdown() {
@@ -25,3 +35,4 @@ async function shutdown() {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+

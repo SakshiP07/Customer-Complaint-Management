@@ -1,7 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import { env } from "../../config/env.js";
 import { YouTubeChannelAdapter } from "./adapters.js";
-import { complaintService } from "../../services/complaint.service.js";
 import { logger } from "../../utils/logger.js";
 
 const youtubeAdapter = new YouTubeChannelAdapter();
@@ -12,10 +11,24 @@ interface YouTubeConfig {
   pollingIntervalMinutes: number;
 }
 
+export interface YouTubeCommentItem {
+  commentId: string;
+  videoId: string;
+  videoTitle: string;
+  authorName: string;
+  authorChannelId: string;
+  authorProfileImageUrl?: string;
+  text: string;
+  publishedAt: string;
+  videoUrl: string;
+  commentUrl: string;
+}
+
 class YouTubePollingService {
   private config: YouTubeConfig | null = null;
   private intervalId: NodeJS.Timeout | null = null;
   private lastChecked: Date | null = null;
+  private isSyncing = false;
 
   constructor() {
     this.config = this.loadConfig();
@@ -27,8 +40,10 @@ class YouTubePollingService {
       return null;
     }
 
-    const channelIds = env.YOUTUBE_CHANNEL_IDS ? env.YOUTUBE_CHANNEL_IDS.split(',').map(id => id.trim()) : [];
-    
+    const channelIds = env.YOUTUBE_CHANNEL_IDS
+      ? env.YOUTUBE_CHANNEL_IDS.split(",").map((id) => id.trim()).filter(Boolean)
+      : [];
+
     if (channelIds.length === 0) {
       logger.warn("YouTube integration not configured. Set YOUTUBE_CHANNEL_IDS environment variable.");
       return null;
@@ -37,7 +52,16 @@ class YouTubePollingService {
     return {
       apiKey: env.YOUTUBE_API_KEY,
       channelIds,
-      pollingIntervalMinutes: env.YOUTUBE_POLLING_INTERVAL_MINUTES || 2,
+      pollingIntervalMinutes: Number(env.YOUTUBE_POLLING_INTERVAL_MINUTES) || 2,
+    };
+  }
+
+  getStatus() {
+    return {
+      configured: Boolean(this.config?.apiKey && this.config?.channelIds?.length),
+      channelIds: this.config?.channelIds || [],
+      lastChecked: this.lastChecked,
+      isPolling: Boolean(this.intervalId),
     };
   }
 
@@ -45,266 +69,387 @@ class YouTubePollingService {
     if (!this.config) return false;
 
     try {
+      const channelId = this.config.channelIds[0];
       const response = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=id&id=${this.config.channelIds[0]}&key=${this.config.apiKey}`
+        `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${channelId}&key=${this.config.apiKey}`
       );
-      return response.ok;
+      if (!response.ok) return false;
+      const data = (await response.json()) as { items?: any[] };
+      return Boolean(data.items && data.items.length > 0);
     } catch (error) {
       logger.error(`YouTube connection test failed: ${error}`);
       return false;
     }
   }
 
-  private async fetchComments(videoId: string): Promise<any[]> {
+  private async fetchVideos(channelId: string): Promise<Array<{ videoId: string; title: string }>> {
     if (!this.config) return [];
 
     try {
-      const response = await fetch(
-        `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&key=${this.config.apiKey}&order=time&maxResults=20`
+      // 1. First attempt: Use upload playlist (UC... -> UU...) which costs 1 quota unit instead of 100
+      const uploadsPlaylistId = channelId.startsWith("UC")
+        ? "UU" + channelId.substring(2)
+        : channelId;
+
+      logger.info(`Fetching YouTube playlist items for playlist: ${uploadsPlaylistId}`);
+      const plResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&key=${this.config.apiKey}&maxResults=15`
       );
-      
-      if (!response.ok) {
-        logger.error(`YouTube API error: ${response.status} ${response.statusText}`);
-        return [];
+
+      if (plResponse.ok) {
+        const plData = (await plResponse.json()) as { items?: any[] };
+        if (plData.items && plData.items.length > 0) {
+          const videos = plData.items
+            .map((item) => {
+              const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
+              const title = item.snippet?.title || "Untitled Video";
+              return { videoId, title };
+            })
+            .filter((v) => Boolean(v.videoId));
+          if (videos.length > 0) {
+            return videos;
+          }
+        }
       }
 
-      const data = await response.json() as { items?: any[] };
-      return data.items || [];
-    } catch (error) {
-      logger.error(`Error fetching YouTube comments for video ${videoId}: ${error}`);
-      return [];
-    }
-  }
+      // 2. Fallback: Lookup channel details for upload playlist
+      const chResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${this.config.apiKey}`
+      );
+      if (chResponse.ok) {
+        const chData = (await chResponse.json()) as { items?: any[] };
+        const uploadPl = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+        if (uploadPl) {
+          const fallbackPl = await fetch(
+            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadPl}&key=${this.config.apiKey}&maxResults=15`
+          );
+          if (fallbackPl.ok) {
+            const fallbackData = (await fallbackPl.json()) as { items?: any[] };
+            if (fallbackData.items && fallbackData.items.length > 0) {
+              return fallbackData.items
+                .map((item) => ({
+                  videoId: item.contentDetails?.videoId || item.snippet?.resourceId?.videoId,
+                  title: item.snippet?.title || "Untitled Video",
+                }))
+                .filter((v) => Boolean(v.videoId));
+            }
+          }
+        }
+      }
 
-  private async fetchVideos(channelId: string): Promise<any[]> {
-    if (!this.config) return [];
-
-    try {
-      const response = await fetch(
+      // 3. Last fallback: search API
+      const searchRes = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=id,snippet&channelId=${channelId}&type=video&order=date&key=${this.config.apiKey}&maxResults=10`
       );
-      
-      if (!response.ok) {
-        logger.error(`YouTube API error: ${response.status} ${response.statusText}`);
-        return [];
+      if (searchRes.ok) {
+        const searchData = (await searchRes.json()) as { items?: any[] };
+        return (searchData.items || []).map((item) => ({
+          videoId: item.id?.videoId,
+          title: item.snippet?.title || "Untitled Video",
+        })).filter((v) => Boolean(v.videoId));
       }
 
-      const data = await response.json() as { items?: any[] };
-      return data.items || [];
+      return [];
     } catch (error) {
       logger.error(`Error fetching YouTube videos for channel ${channelId}: ${error}`);
       return [];
     }
   }
 
-  private async checkYouTubeComments() {
+  private async fetchComments(videoId: string, videoTitle: string): Promise<YouTubeCommentItem[]> {
+    if (!this.config) return [];
+
+    const allComments: YouTubeCommentItem[] = [];
+    let nextPageToken: string | undefined = undefined;
+
     try {
-      logger.info('Checking YouTube for new comments...');
-      
+      do {
+        const url = new URL("https://www.googleapis.com/youtube/v3/commentThreads");
+        url.searchParams.set("part", "snippet,replies");
+        url.searchParams.set("videoId", videoId);
+        url.searchParams.set("key", this.config.apiKey);
+        url.searchParams.set("order", "time");
+        url.searchParams.set("maxResults", "100");
+        if (nextPageToken) {
+          url.searchParams.set("pageToken", nextPageToken);
+        }
+
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+          logger.error(`YouTube commentThreads error: ${response.status} ${response.statusText}`);
+          break;
+        }
+
+        const data = (await response.json()) as { items?: any[]; nextPageToken?: string };
+        const items = data.items || [];
+
+        for (const thread of items) {
+          // 1. Top level comment
+          const topComment = thread.snippet?.topLevelComment?.snippet || {};
+          const topCommentId = thread.id || thread.snippet?.topLevelComment?.id || "";
+          const topAuthorChannelIdRaw = topComment.authorChannelId;
+          const topAuthorChannelId =
+            typeof topAuthorChannelIdRaw === "object"
+              ? topAuthorChannelIdRaw?.value || ""
+              : String(topAuthorChannelIdRaw || "");
+
+          if (topCommentId && (topComment.textDisplay || topComment.textOriginal)) {
+            allComments.push({
+              commentId: topCommentId,
+              videoId,
+              videoTitle,
+              authorName: topComment.authorDisplayName || "YouTube User",
+              authorChannelId: topAuthorChannelId || "anonymous",
+              authorProfileImageUrl: topComment.authorProfileImageUrl || "",
+              text: topComment.textDisplay || topComment.textOriginal || "",
+              publishedAt: topComment.publishedAt || new Date().toISOString(),
+              videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              commentUrl: `https://www.youtube.com/watch?v=${videoId}&lc=${topCommentId}`,
+            });
+          }
+
+          // 2. Extracted replies in thread
+          if (thread.replies?.comments && Array.isArray(thread.replies.comments)) {
+            for (const rep of thread.replies.comments) {
+              const repSnippet = rep.snippet || {};
+              const repId = rep.id || "";
+              const repAuthorRaw = repSnippet.authorChannelId;
+              const repAuthorId =
+                typeof repAuthorRaw === "object" ? repAuthorRaw?.value || "" : String(repAuthorRaw || "");
+
+              if (repId && (repSnippet.textDisplay || repSnippet.textOriginal)) {
+                allComments.push({
+                  commentId: repId,
+                  videoId,
+                  videoTitle,
+                  authorName: repSnippet.authorDisplayName || "YouTube User (Reply)",
+                  authorChannelId: repAuthorId || "anonymous",
+                  authorProfileImageUrl: repSnippet.authorProfileImageUrl || "",
+                  text: repSnippet.textDisplay || repSnippet.textOriginal || "",
+                  publishedAt: repSnippet.publishedAt || new Date().toISOString(),
+                  videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+                  commentUrl: `https://www.youtube.com/watch?v=${videoId}&lc=${repId}`,
+                });
+              }
+            }
+          }
+        }
+
+        nextPageToken = data.nextPageToken;
+      } while (nextPageToken);
+
+      return allComments;
+    } catch (error) {
+      logger.error(`Error fetching YouTube comments for video ${videoId}: ${error}`);
+      return allComments;
+    }
+  }
+
+  async syncNow(): Promise<{ fetched: number; items: any[]; message: string }> {
+    if (this.isSyncing) {
+      return { fetched: 0, items: [], message: "Sync already in progress" };
+    }
+
+    this.isSyncing = true;
+    const createdComplaints: any[] = [];
+
+    try {
       if (!this.config) {
-        logger.warn('YouTube not configured');
-        return;
+        this.config = this.loadConfig();
       }
 
-      for (const channelId of this.config.channelIds) {
-        logger.info(`Fetching videos for channel: ${channelId}`);
-        const videos = await this.fetchVideos(channelId);
-        logger.info(`Found ${videos.length} videos for channel ${channelId}`);
-        
-        for (const video of videos) {
-          const videoId = video.id.videoId;
-          const videoTitle = video.snippet.title;
-          
-          logger.info(`Fetching comments for video: ${videoTitle} (${videoId})`);
-          const comments = await this.fetchComments(videoId);
-          logger.info(`Found ${comments.length} comments for video ${videoId}`);
-          
-          for (const commentThread of comments) {
-            const comment = commentThread.snippet.topLevelComment.snippet;
-            const commentId = commentThread.id;
-            const publishedAt = comment.publishedAt;
-            
-            logger.info(`Processing comment: ${commentId} from ${publishedAt}`);
-            
-            // Skip if comment is older than last check
-            if (this.lastChecked && new Date(publishedAt) < this.lastChecked) {
-              logger.info(`Skipping comment ${commentId} - older than last check (${publishedAt} < ${this.lastChecked})`);
-              continue;
-            }
+      if (!this.config) {
+        return { fetched: 0, items: [], message: "YouTube integration is not configured" };
+      }
 
-            // Check if this comment was already processed by subject
+      logger.info("Executing instant YouTube comments sync...");
+
+      const [defaultRegion, defaultCategory, channel, defaultCompany] = await Promise.all([
+        prisma.region.findFirst({ where: { isActive: true } }),
+        prisma.complaintCategory.findFirst({ where: { isActive: true } }),
+        prisma.complaintChannel.findFirst({ where: { code: "YOUTUBE", isActive: true } }),
+        prisma.company.findFirst({ where: { isActive: true } }),
+      ]);
+
+      if (!defaultRegion || !defaultCategory || !channel) {
+        logger.error("Missing required default region, category, or YOUTUBE channel record.");
+        return { fetched: 0, items: [], message: "Database missing YOUTUBE channel or categories." };
+      }
+
+      const targetCompanyId = defaultCompany?.id || "564b59d2-98d2-405f-bfc6-4b16be238024";
+
+      for (const channelId of this.config.channelIds) {
+        const videos = await this.fetchVideos(channelId);
+        logger.info(`Found ${videos.length} videos for YouTube channel: ${channelId}`);
+
+        for (const video of videos) {
+          const comments = await this.fetchComments(video.videoId, video.title);
+          logger.info(`Fetched ${comments.length} total comments & replies for video "${video.title}" (${video.videoId})`);
+
+          for (const comment of comments) {
+            if (!comment.commentId || !comment.text) continue;
+
+            // Check if this comment was already ingested (by commentId in subject or description)
             const existing = await prisma.complaint.findFirst({
               where: {
-                subject: {
-                  contains: commentId,
-                  mode: 'insensitive',
-                },
+                OR: [
+                  { subject: { contains: comment.commentId, mode: "insensitive" } },
+                  { description: { contains: comment.commentId, mode: "insensitive" } },
+                ],
               },
             });
 
             if (existing) {
-              logger.info(`Skipping comment ${commentId} - already processed`);
               continue;
             }
 
-            // Convert comment to complaint
-            const normalised = await youtubeAdapter.ingest({
-              videoId,
-              videoTitle,
-              commentId,
-              authorName: comment.authorDisplayName,
-              authorChannelId: comment.authorChannelId,
-              text: comment.textDisplay,
-              publishedAt,
-            });
+            // Clean author email
+            const safeAuthorId = comment.authorChannelId.replace(/[^a-zA-Z0-9_-]/g, "");
+            const email = `${safeAuthorId || "user"}@youtube.com`.toLowerCase();
 
-            // Add comment ID to subject for deduplication
-            normalised.subject = `${normalised.subject} [${commentId}]`;
+            // Construct formatted description with YouTube Video Metadata
+            const structuredDescription = [
+              `[YouTube Video ID: ${comment.videoId}]`,
+              `[YouTube Video Title: ${comment.videoTitle}]`,
+              `[YouTube Comment ID: ${comment.commentId}]`,
+              `[YouTube Video Link: ${comment.videoUrl}]`,
+              `[YouTube Comment Link: ${comment.commentUrl}]`,
+              "",
+              comment.text.replace(/<br\s*[\/]?>/gi, "\n"),
+            ].join("\n");
 
-            // Get default region if not set
-            if (!normalised.regionId) {
-              const defaultRegion = await prisma.region.findFirst({ where: { isActive: true } });
-              if (defaultRegion) {
-                normalised.regionId = defaultRegion.id;
-              }
-            }
+            const subject = `YouTube Comment on "${comment.videoTitle}" [${comment.commentId}]`;
 
-            // Get default category if not set
-            if (!normalised.categoryId) {
-              const defaultCategory = await prisma.complaintCategory.findFirst({ where: { isActive: true } });
-              if (defaultCategory) {
-                normalised.categoryId = defaultCategory.id;
-              }
-            }
-
-            // Ensure we have valid IDs before querying
-            if (!normalised.regionId || !normalised.categoryId) {
-              logger.error('Missing required region or category configuration for YouTube complaint');
-              return;
-            }
-
-            // Create complaint directly with YOUTUBE channel
-            const [region, category, channel] = await Promise.all([
-              prisma.region.findFirst({ where: { id: normalised.regionId, isActive: true } }),
-              prisma.complaintCategory.findFirst({ where: { id: normalised.categoryId, isActive: true } }),
-              prisma.complaintChannel.findFirst({ where: { code: "YOUTUBE", isActive: true } }),
-            ]);
-
-            if (!region || !category || !channel) {
-              logger.error('Missing required configuration for YouTube complaint');
-              return;
-            }
-
-            const email = normalised.email.toLowerCase();
-            const complaint = await prisma.$transaction(async (tx) => {
+            const created = await prisma.$transaction(async (tx) => {
               let profile = await tx.customerProfile.findFirst({ where: { email } });
               if (!profile) {
                 profile = await tx.customerProfile.create({
                   data: {
-                    name: normalised.name,
+                    name: comment.authorName,
                     email,
-                    phone: normalised.phone,
-                    preferredContactMethod: 'EMAIL',
+                    phone: null,
+                    preferredContactMethod: "EMAIL",
                   },
                 });
               }
 
               const year = new Date().getFullYear();
-              const sequence = await tx.complaintSequence.findUnique({ where: { year } });
-              const nextNumber = (sequence?.lastNumber ?? 0) + 1;
-              const complaintNumber = `CMP-${year}-${String(nextNumber).padStart(6, '0')}`;
+              const sequence = await tx.complaintSequence.upsert({
+                where: { year },
+                create: { year, lastNumber: 1 },
+                update: { lastNumber: { increment: 1 } },
+              });
 
-              const created = await tx.complaint.create({
+              const complaintNumber = `CMP-${year}-${String(sequence.lastNumber).padStart(6, "0")}`;
+
+              const complaint = await tx.complaint.create({
                 data: {
                   complaintNumber,
                   customerId: profile.id,
                   channelId: channel.id,
-                  categoryId: category.id,
-                  priority: 'MEDIUM',
-                  status: 'CATEGORISED',
-                  subject: normalised.subject,
-                  description: normalised.description,
-                  regionId: region.id,
-                  storeId: normalised.storeId || null,
+                  categoryId: defaultCategory.id,
+                  companyId: targetCompanyId,
+                  priority: "MEDIUM",
+                  status: "CATEGORISED",
+                  subject,
+                  description: structuredDescription,
+                  regionId: defaultRegion.id,
+                  storeId: null,
                 },
-              });
-
-              await tx.complaintSequence.upsert({
-                where: { year },
-                update: { lastNumber: nextNumber },
-                create: { year, lastNumber: nextNumber },
+                include: {
+                  customer: true,
+                  channel: true,
+                  category: true,
+                  region: true,
+                },
               });
 
               await tx.complaintStatusHistory.create({
                 data: {
-                  complaintId: created.id,
-                  actionType: 'CREATED',
-                  newStatus: 'CATEGORISED',
-                  notes: `Complaint received from YOUTUBE`,
+                  complaintId: complaint.id,
+                  actionType: "CREATED",
+                  newStatus: "CATEGORISED",
+                  notes: `Ingested from YouTube comment on video "${comment.videoTitle}"`,
                 },
               });
 
               await tx.conversation.create({
                 data: {
-                  complaintId: created.id,
+                  complaintId: complaint.id,
                   messages: {
                     create: {
-                      senderType: 'CUSTOMER',
-                      authorName: normalised.name,
-                      body: normalised.description,
-                      deliveryStatus: 'SENT',
-                      channelCode: 'YOUTUBE',
+                      senderType: "CUSTOMER",
+                      authorName: comment.authorName,
+                      body: comment.text,
+                      deliveryStatus: "SENT",
+                      channelCode: "YOUTUBE",
                     },
                   },
                 },
               });
 
-              return created;
+              return complaint;
             });
 
-            logger.info(`Created complaint from YouTube comment: ${commentId}`);
+            createdComplaints.push({
+              id: created.id,
+              complaintNumber: created.complaintNumber,
+              subject: created.subject,
+              authorName: comment.authorName,
+              videoTitle: comment.videoTitle,
+              videoId: comment.videoId,
+            });
+
+            logger.info(`Successfully ingested YouTube comment ${comment.commentId} as ${created.complaintNumber}`);
           }
         }
       }
 
       this.lastChecked = new Date();
-      
-    } catch (error) {
-      logger.error(`Error checking YouTube comments: ${error}`);
+      return {
+        fetched: createdComplaints.length,
+        items: createdComplaints,
+        message: `Successfully fetched ${createdComplaints.length} new YouTube comments.`,
+      };
+    } catch (error: any) {
+      logger.error(`Error during YouTube comments sync: ${error?.message || error}`);
+      return { fetched: 0, items: [], message: `Error syncing YouTube comments: ${error?.message || error}` };
+    } finally {
+      this.isSyncing = false;
     }
   }
 
-  startPolling(intervalMinutes?: number) {
+  startPolling(intervalSeconds: number = 8) {
     if (!this.config) {
-      logger.warn('YouTube polling not started: not configured');
+      logger.warn("YouTube polling not started: not configured");
       return;
     }
 
     if (this.intervalId) {
-      logger.warn('YouTube polling already running');
+      logger.warn("YouTube polling already running");
       return;
     }
 
-    const interval = (intervalMinutes || this.config.pollingIntervalMinutes) * 60 * 1000;
-    
-    logger.info(`Starting YouTube polling every ${interval / 60000} minutes`);
-    
+    const intervalMs = intervalSeconds * 1000;
+    logger.info(`Starting real-time YouTube polling every ${intervalSeconds} seconds`);
+
     // Initial check
-    this.checkYouTubeComments();
-    
+    this.syncNow().catch((err) => logger.error("Initial YouTube sync error:", err));
+
     // Set up interval
     this.intervalId = setInterval(() => {
-      this.checkYouTubeComments();
-    }, interval);
+      this.syncNow().catch((err) => logger.error("Periodic YouTube sync error:", err));
+    }, intervalMs);
   }
 
   stopPolling() {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      logger.info('YouTube polling stopped');
+      logger.info("YouTube polling stopped");
     }
   }
 }
 
 export const youtubePollingService = new YouTubePollingService();
+

@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { complaintService } from "../services/complaint.service.js";
+import { emailPollingService } from "../integrations/channels/email.service.js";
+import { youtubePollingService } from "../integrations/channels/youtube.service.js";
 import { success, successWithMeta } from "../utils/response.js";
 import { parsePagination, routeParam } from "../utils/pagination.js";
 import { clientIp } from "../middleware/audit.js";
@@ -160,4 +162,22 @@ export const complaintController = {
       next(e);
     }
   },
+  async syncChannels(req: Request, res: Response, next: NextFunction) {
+    try {
+      const [emailResult, ytResult] = await Promise.all([
+        emailPollingService.syncNow().catch((err: any) => ({ fetched: 0, items: [], message: err.message })),
+        youtubePollingService.syncNow().catch((err: any) => ({ fetched: 0, items: [], message: err.message })),
+      ]);
+
+      const totalFetched = (emailResult.fetched || 0) + (ytResult.fetched || 0);
+      return success(
+        res,
+        { email: emailResult, youtube: ytResult, totalFetched },
+        `Sync completed in seconds! Fetched ${ytResult.fetched || 0} YouTube comments & ${emailResult.fetched || 0} new emails.`
+      );
+    } catch (e) {
+      next(e);
+    }
+  },
 };
+

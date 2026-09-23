@@ -55,7 +55,7 @@ export const analyticsService = {
       .sort((a, b) => b.count - a.count);
 
     const focusId = filters.categoryId ?? items[0]?.categoryId;
-    const focusItems = filters.categoryId ? items.filter((i) => i.categoryId === filters.categoryId) : items;
+    const focusCategory = items.find((i) => i.categoryId === focusId) ?? items[0];
 
     async function breakdown(categoryId: string | null | undefined) {
       if (!categoryId) return { channels: [], regions: [], stores: [] };
@@ -76,12 +76,13 @@ export const analyticsService = {
       const rmap = new Map(regions.map((r) => [r.id, r.name]));
       const smap = new Map(stores.map((s) => [s.id, s.name]));
       const chTotal = ch.reduce((s, x) => s + x._count._all, 0) || 1;
+      const rgTotal = rg.reduce((s, x) => s + x._count._all, 0) || 1;
       return {
         channels: ch
           .map((x) => ({ name: cmap.get(x.channelId) ?? "Unknown", count: x._count._all, percentage: Math.round((x._count._all / chTotal) * 1000) / 10 }))
           .sort((a, b) => b.count - a.count),
         regions: rg
-          .map((x) => ({ name: rmap.get(x.regionId) ?? "Unknown", count: x._count._all, percentage: Math.round((x._count._all / chTotal) * 1000) / 10 }))
+          .map((x) => ({ name: rmap.get(x.regionId) ?? "Unknown", count: x._count._all, percentage: Math.round((x._count._all / rgTotal) * 1000) / 10 }))
           .sort((a, b) => b.count - a.count),
         stores: st
           .map((x) => ({ name: smap.get(x.storeId ?? "") ?? "Unknown", count: x._count._all }))
@@ -91,11 +92,10 @@ export const analyticsService = {
     }
 
     const detail = await breakdown(focusId);
-    const top = focusItems[0];
 
     return {
-      items: focusItems,
-      selectedCategory: top?.categoryName ?? null,
+      items,
+      selectedCategory: focusCategory?.categoryName ?? null,
       affectedRegions: detail.regions,
       affectedStores: detail.stores,
       affectedChannels: detail.channels,
