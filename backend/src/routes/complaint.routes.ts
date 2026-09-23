@@ -26,6 +26,7 @@ export const complaintRouter = Router();
 complaintRouter.post("/", optionalAuthenticate, validate(createComplaintSchema), complaintController.create);
 complaintRouter.get("/track", complaintController.track);
 complaintRouter.get("/", authenticate, validate(listComplaintsQuery, "query"), complaintController.list);
+complaintRouter.post("/sync-channels", authenticate, complaintController.syncChannels);
 complaintRouter.get("/:id", authenticate, complaintController.get);
 complaintRouter.patch("/:id", authenticate, validate(patchComplaintSchema), complaintController.patch);
 complaintRouter.post(

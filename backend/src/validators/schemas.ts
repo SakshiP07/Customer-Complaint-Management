@@ -45,6 +45,7 @@ export const listComplaintsQuery = z.object({
   priority: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   channelId: z.string().uuid().optional(),
+  channelCode: z.string().optional(),
   regionId: z.string().uuid().optional(),
   storeId: z.string().uuid().optional(),
   assignedAgentId: z.string().uuid().optional(),

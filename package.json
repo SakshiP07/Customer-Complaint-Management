@@ -16,8 +16,8 @@
     "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend",
     "test": "npm run test --workspace=backend && npm run test --workspace=frontend",
     "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
-    "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose stop postgres",
+    "db:up": "docker-compose up -d postgres",
+    "db:down": "docker-compose stop postgres",
     "db:migrate": "npm run prisma:migrate --workspace=backend",
     "db:seed": "npm run prisma:seed --workspace=backend",
     "db:reset": "npm run prisma:reset --workspace=backend"

@@ -21,30 +21,30 @@ export function slaRemaining(due?: string | null, slaStatus?: string) {
 }
 
 export const statusClass: Record<string, string> = {
-  NEW: "bg-sky-50 text-sky-800",
-  CATEGORISED: "bg-indigo-50 text-indigo-800",
-  ASSIGNED: "bg-violet-50 text-violet-800",
-  IN_PROGRESS: "bg-amber-50 text-amber-800",
-  PENDING: "bg-slate-100 text-slate-700",
-  RESOLVED: "bg-emerald-50 text-emerald-800",
-  CLOSED: "bg-slate-200 text-slate-700",
-  ESCALATED: "bg-orange-50 text-orange-800",
-  REOPENED: "bg-fuchsia-50 text-fuchsia-800",
+  NEW: "bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-glow-sm",
+  CATEGORISED: "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20",
+  ASSIGNED: "bg-violet-500/10 text-violet-400 border border-violet-500/20",
+  IN_PROGRESS: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  PENDING: "bg-zinc-800 text-zinc-300 border border-zinc-700",
+  RESOLVED: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-glow-sm",
+  CLOSED: "bg-zinc-900 text-zinc-400 border border-zinc-800",
+  ESCALATED: "bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-glow-sm",
+  REOPENED: "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20",
 };
 
 export const priorityClass: Record<string, string> = {
-  LOW: "bg-slate-100 text-slate-700",
-  MEDIUM: "bg-blue-50 text-blue-800",
-  HIGH: "bg-amber-50 text-amber-800",
-  CRITICAL: "bg-red-50 text-red-800",
+  LOW: "bg-zinc-800 text-zinc-300 border border-zinc-700",
+  MEDIUM: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+  HIGH: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  CRITICAL: "bg-rose-500/10 text-rose-400 border border-rose-500/30 animate-pulse",
 };
 
 export const slaClass: Record<string, string> = {
-  ON_TRACK: "bg-emerald-50 text-emerald-800",
-  APPROACHING: "bg-amber-50 text-amber-800",
-  OVERDUE: "bg-red-50 text-red-800",
-  MET: "bg-emerald-50 text-emerald-800",
-  BREACHED: "bg-red-50 text-red-800",
+  ON_TRACK: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  APPROACHING: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  OVERDUE: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+  MET: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  BREACHED: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
 };
 
 export type Role =

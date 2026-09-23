@@ -21,6 +21,7 @@ export type Complaint = {
   status: string;
   priority: string;
   slaStatus: string;
+  subject?: string | null;
   description: string;
   resolution?: string | null;
   createdAt: string;
@@ -30,9 +31,10 @@ export type Complaint = {
   resolvedAt?: string | null;
   customer: { name: string; email: string; phone?: string | null };
   category?: { id: string; name: string } | null;
-  channel: { name: string; code?: string };
+  channel: { id?: string; name: string; code: string };
   region: { name: string };
   store?: { name: string } | null;
+
   assignedAgent?: { id: string; name: string } | null;
   conversation?: {
     id: string;

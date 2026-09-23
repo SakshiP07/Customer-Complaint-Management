@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { GuestOnly, Protected } from "./routes/guards";
 import { AppShell } from "./components/layout/AppShell";
+import { LandingPage } from "./pages/public/LandingPage";
 import { LoginPage, RegisterPage } from "./pages/public/AuthPages";
 import { NewComplaintPage, TrackComplaintPage } from "./pages/public/ComplaintPages";
 import {
@@ -19,6 +20,7 @@ import {
   RegionalDashboard,
   ReportsPage,
   SlaMonitoringPage,
+  YouTubeCommentsPage,
 } from "./pages/workspace/WorkspacePages";
 import {
   AdminDashboard,
@@ -35,12 +37,15 @@ import {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route element={<GuestOnly />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
       <Route path="/complaints/new" element={<NewComplaintPage />} />
+      <Route path="/submit" element={<NewComplaintPage />} />
       <Route path="/complaints/track" element={<TrackComplaintPage />} />
+      <Route path="/track" element={<TrackComplaintPage />} />
       <Route path="/notifications" element={<NotificationsPage />} />
 
       <Route element={<Protected roles={["CUSTOMER"]} />}>
@@ -60,6 +65,7 @@ export default function App() {
           <Route path="/agent/inbox/:id" element={<ComplaintDetailPage />} />
           <Route path="/agent/complaints" element={<ComplaintsListPage title="My Complaints" base="/agent/complaints" view="mine" />} />
           <Route path="/agent/complaints/:id" element={<ComplaintDetailPage />} />
+          <Route path="/agent/youtube-comments" element={<YouTubeCommentsPage detailBase="/agent/complaints" />} />
           <Route path="/agent/escalated" element={<ComplaintsListPage title="Escalated" base="/agent/escalated" view="escalated" />} />
           <Route path="/agent/escalated/:id" element={<ComplaintDetailPage />} />
           <Route path="/agent/overdue" element={<ComplaintsListPage title="Overdue" base="/agent/overdue" view="overdue" />} />
@@ -76,6 +82,7 @@ export default function App() {
           <Route path="/manager/dashboard" element={<ManagerDashboard />} />
           <Route path="/manager/complaints" element={<ComplaintsListPage title="All Complaints" base="/manager/complaints" view="inbox" />} />
           <Route path="/manager/complaints/:id" element={<ComplaintDetailPage />} />
+          <Route path="/manager/youtube-comments" element={<YouTubeCommentsPage detailBase="/manager/complaints" />} />
           <Route path="/manager/employees" element={<EmployeesPage />} />
           <Route path="/manager/employees/:id" element={<EmployeePerformancePage />} />
           <Route path="/manager/escalations" element={<ComplaintsListPage title="Escalations" base="/manager/escalations" view="escalated" />} />
@@ -94,6 +101,7 @@ export default function App() {
           <Route path="/regional/dashboard" element={<RegionalDashboard />} />
           <Route path="/regional/complaints" element={<ComplaintsListPage title="Regional complaints" base="/regional/complaints" view="inbox" />} />
           <Route path="/regional/complaints/:id" element={<ComplaintDetailPage />} />
+          <Route path="/regional/youtube-comments" element={<YouTubeCommentsPage detailBase="/regional/complaints" />} />
           <Route path="/regional/employees" element={<EmployeesPage />} />
           <Route path="/regional/employees/:id" element={<EmployeePerformancePage />} />
           <Route path="/regional/escalations" element={<ComplaintsListPage title="Escalations" base="/regional/escalations" view="escalated" />} />
@@ -111,6 +119,7 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/complaints" element={<ComplaintsListPage title="All Complaints" base="/admin/complaints" view="inbox" />} />
           <Route path="/admin/complaints/:id" element={<ComplaintDetailPage />} />
+          <Route path="/admin/youtube-comments" element={<YouTubeCommentsPage detailBase="/admin/complaints" />} />
           <Route path="/admin/users" element={<UsersPage />} />
           <Route path="/admin/employees" element={<EmployeesPage />} />
           <Route path="/admin/employees/:id" element={<EmployeePerformancePage />} />
@@ -126,8 +135,7 @@ export default function App() {
         </Route>
       </Route>
 
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

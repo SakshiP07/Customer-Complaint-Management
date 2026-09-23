@@ -9,6 +9,7 @@ export type ComplaintFilters = {
   priority?: string;
   categoryId?: string;
   channelId?: string;
+  channelCode?: string;
   regionId?: string;
   storeId?: string;
   assignedAgentId?: string;
@@ -30,7 +31,10 @@ export function scopedWhere(
   extra: Prisma.ComplaintWhereInput = {},
   mode: "metrics" | "read" | "inbox" = "metrics",
 ): Prisma.ComplaintWhereInput {
-  const base: Prisma.ComplaintWhereInput = user.companyId ? { companyId: user.companyId, ...extra } : { ...extra };
+  const base: Prisma.ComplaintWhereInput =
+    user.role === "SUPER_ADMIN" || !user.companyId
+      ? { ...extra }
+      : { OR: [{ companyId: user.companyId }, { companyId: null }], ...extra };
   switch (user.role) {
     case "CUSTOMER":
       return { ...base, customer: { userId: user.id } };
@@ -40,19 +44,22 @@ export function scopedWhere(
       if (!user.regionId) throw ApiError.forbidden("Regional manager is not assigned to a region");
       return { ...base, regionId: user.regionId };
     case "OPERATIONS_MANAGER":
-      if (user.regionId) return { ...base, regionId: user.regionId };
-      return base;
+    case "ADMIN":
+    case "SUPER_ADMIN":
     default:
       return base;
   }
 }
 
 export function buildListWhere(user: AuthUser, filters: ComplaintFilters): Prisma.ComplaintWhereInput {
+  const andClauses: Prisma.ComplaintWhereInput[] = [];
   const extra: Prisma.ComplaintWhereInput = {};
+
   if (filters.status) extra.status = filters.status as ComplaintStatus;
   if (filters.priority) extra.priority = filters.priority;
   if (filters.categoryId) extra.categoryId = filters.categoryId;
   if (filters.channelId) extra.channelId = filters.channelId;
+  if (filters.channelCode) extra.channel = { code: filters.channelCode };
   if (filters.storeId) extra.storeId = filters.storeId;
   if (filters.assignedAgentId) extra.assignedAgentId = filters.assignedAgentId;
   if (filters.slaStatus) extra.slaStatus = filters.slaStatus as SlaStatus;
@@ -62,20 +69,44 @@ export function buildListWhere(user: AuthUser, filters: ComplaintFilters): Prism
     if (filters.from) extra.createdAt.gte = new Date(filters.from);
     if (filters.to) extra.createdAt.lte = new Date(filters.to);
   }
-  if (filters.view === "escalated") extra.status = "ESCALATED";
-  if (filters.view === "overdue") extra.slaStatus = "OVERDUE";
-  if (filters.search) {
-    extra.OR = [
-      { complaintNumber: { contains: filters.search, mode: "insensitive" } },
-      { description: { contains: filters.search, mode: "insensitive" } },
-      { customer: { name: { contains: filters.search, mode: "insensitive" } } },
-      { customer: { email: { contains: filters.search, mode: "insensitive" } } },
-      { customer: { phone: { contains: filters.search, mode: "insensitive" } } },
-      { category: { name: { contains: filters.search, mode: "insensitive" } } },
-      { store: { name: { contains: filters.search, mode: "insensitive" } } },
-      { region: { name: { contains: filters.search, mode: "insensitive" } } },
-    ];
+
+  if (filters.view === "escalated" && !filters.status) {
+    andClauses.push({
+      OR: [
+        { status: "ESCALATED" },
+        { escalations: { some: { status: { in: ["OPEN", "IN_PROGRESS"] } } } },
+      ],
+    });
   }
+
+  if (filters.view === "overdue" && !filters.slaStatus) {
+    andClauses.push({
+      OR: [
+        { slaStatus: { in: ["OVERDUE", "BREACHED"] } },
+        { slaDueAt: { lt: new Date() }, status: { notIn: ["RESOLVED", "CLOSED"] } },
+      ],
+    });
+  }
+
+  if (filters.search) {
+    andClauses.push({
+      OR: [
+        { complaintNumber: { contains: filters.search, mode: "insensitive" } },
+        { description: { contains: filters.search, mode: "insensitive" } },
+        { customer: { name: { contains: filters.search, mode: "insensitive" } } },
+        { customer: { email: { contains: filters.search, mode: "insensitive" } } },
+        { customer: { phone: { contains: filters.search, mode: "insensitive" } } },
+        { category: { name: { contains: filters.search, mode: "insensitive" } } },
+        { store: { name: { contains: filters.search, mode: "insensitive" } } },
+        { region: { name: { contains: filters.search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  if (andClauses.length > 0) {
+    extra.AND = andClauses;
+  }
+
   const mode = filters.view === "inbox" || filters.view === "escalated" || filters.view === "overdue" ? "inbox" : "metrics";
   return scopedWhere(user, extra, mode);
 }
