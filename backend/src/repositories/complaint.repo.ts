@@ -19,11 +19,15 @@ export type ComplaintFilters = {
   view?: "inbox" | "mine" | "escalated" | "overdue";
 };
 
-export function agentReadScope(user: AuthUser): Prisma.ComplaintWhereInput {
+export function agentReadScope(user: AuthUser, mode: "metrics" | "read" | "inbox" = "metrics"): Prisma.ComplaintWhereInput {
+  const agentCondition = mode === "inbox"
+    ? { OR: [{ assignedAgentId: user.id }, { assignedAgentId: null }] }
+    : { assignedAgentId: user.id };
+
   if (user.regionId) {
-    return { AND: [{ regionId: user.regionId }, { assignedAgentId: user.id }] };
+    return { AND: [{ regionId: user.regionId }, agentCondition] };
   }
-  return { assignedAgentId: user.id };
+  return agentCondition;
 }
 
 export function scopedWhere(
@@ -39,7 +43,7 @@ export function scopedWhere(
     case "CUSTOMER":
       return { ...base, customer: { userId: user.id } };
     case "AGENT":
-      return { ...base, ...agentReadScope(user) };
+      return { ...base, ...agentReadScope(user, mode) };
     case "REGIONAL_MANAGER":
       if (!user.regionId) throw ApiError.forbidden("Regional manager is not assigned to a region");
       return { ...base, regionId: user.regionId };

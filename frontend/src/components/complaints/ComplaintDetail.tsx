@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -110,6 +110,7 @@ type AiResult = {
 
 export function ComplaintDetail() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [note, setNote] = useState("");
@@ -588,6 +589,25 @@ export function ComplaintDetail() {
               >
                 Close Ticket
               </Button>
+              {(user?.role.code === "ADMIN" || user?.role.code === "SUPER_ADMIN") && (
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to completely delete this complaint? This cannot be undone.")) {
+                      try {
+                        await api.delete(`/complaints/${id}`);
+                        toast.success("Complaint deleted successfully");
+                        navigate(-1);
+                      } catch (err) {
+                        toast.error(apiErrorMessage(err));
+                      }
+                    }
+                  }}
+                >
+                  Delete Complaint
+                </Button>
+              )}
             </Card>
           ) : null}
 

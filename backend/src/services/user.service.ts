@@ -71,7 +71,16 @@ export const userService = {
     regionId?: string | null;
     storeId?: string | null;
   }, ip?: string | null) {
-    assertAdmin(actor);
+    if (!ADMIN_ROLES.includes(actor.role)) {
+      if (actor.role === "OPERATIONS_MANAGER") {
+        const role = await prisma.role.findUnique({ where: { id: input.roleId } });
+        if (!role || (role.code !== "AGENT" && role.code !== "CUSTOMER")) {
+          throw ApiError.forbidden("Managers can only create Agents or Customers");
+        }
+      } else {
+        throw ApiError.forbidden();
+      }
+    }
     const policy = assertPasswordPolicy(input.password);
     if (policy) throw ApiError.validation(policy);
     const created = await prisma.user.create({

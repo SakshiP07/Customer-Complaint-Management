@@ -28,6 +28,7 @@ complaintRouter.get("/track", complaintController.track);
 complaintRouter.get("/", authenticate, validate(listComplaintsQuery, "query"), complaintController.list);
 complaintRouter.post("/sync-channels", authenticate, complaintController.syncChannels);
 complaintRouter.get("/:id", authenticate, complaintController.get);
+complaintRouter.delete("/:id", authenticate, authorize("ADMIN", "SUPER_ADMIN"), complaintController.delete);
 complaintRouter.patch("/:id", authenticate, validate(patchComplaintSchema), complaintController.patch);
 complaintRouter.post(
   "/:id/assign",

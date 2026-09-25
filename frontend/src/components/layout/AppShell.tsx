@@ -25,7 +25,7 @@ function navFor(role: string): NavItem[] {
       { to: "/customer/dashboard", label: "Dashboard" },
       { to: "/customer/complaints", label: "My Complaints" },
       { to: "/complaints/new", label: "Submit New" },
-      { to: "/customer/profile", label: "Account Profile" },
+      { to: "/customer/profile", label: "Profile" },
     ];
   }
   if (role === "AGENT") {
@@ -33,54 +33,33 @@ function navFor(role: string): NavItem[] {
       { to: "/agent/dashboard", label: "Dashboard" },
       { to: "/agent/inbox", label: "Central Inbox" },
       { to: "/agent/complaints", label: "My Queue" },
-      { to: "/agent/youtube-comments", label: "YouTube Grievances" },
-      { to: "/complaints/new", label: "File Grievance" },
-      { to: "/agent/escalated", label: "Escalations" },
-      { to: "/agent/overdue", label: "Overdue" },
-      { to: "/agent/ai", label: "AI Copilot" },
-      { to: "/agent/performance", label: "My Scorecard" },
+      { to: "/complaints/new", label: "File Complaint" },
     ];
   }
   if (role === "OPERATIONS_MANAGER") {
     return [
-      { to: "/manager/dashboard", label: "Overview" },
+      { to: "/manager/dashboard", label: "Dashboard" },
       { to: "/manager/complaints", label: "All Complaints" },
-      { to: "/manager/youtube-comments", label: "YouTube Grievances" },
-      { to: "/complaints/new", label: "File Grievance" },
-      { to: "/manager/escalations", label: "Escalation Hub" },
-      { to: "/manager/sla", label: "SLA Monitoring" },
-      { to: "/manager/recurring-issues", label: "Root Causes" },
-      { to: "/manager/employees", label: "Agent Performance" },
-      { to: "/manager/reports", label: "Operations Reports" },
-      { to: "/manager/audit-logs", label: "Audit Logs" },
+      { to: "/complaints/new", label: "File Complaint" },
+      { to: "/manager/escalations", label: "Escalations" },
+      { to: "/manager/reports", label: "Reports" },
+      { to: "/manager/users", label: "Team & Users" },
     ];
   }
   if (role === "REGIONAL_MANAGER") {
     return [
-      { to: "/regional/dashboard", label: "Regional Hub" },
+      { to: "/regional/dashboard", label: "Dashboard" },
       { to: "/regional/complaints", label: "Regional Queue" },
-      { to: "/regional/youtube-comments", label: "YouTube Grievances" },
-      { to: "/complaints/new", label: "File Grievance" },
+      { to: "/complaints/new", label: "File Complaint" },
       { to: "/regional/escalations", label: "Escalations" },
-      { to: "/regional/sla", label: "Regional SLA" },
-      { to: "/regional/recurring-issues", label: "Regional Trends" },
-      { to: "/regional/employees", label: "Regional Staff" },
     ];
   }
   return [
-    { to: "/admin/dashboard", label: "Global Command" },
-    { to: "/admin/complaints", label: "All Grievances" },
-    { to: "/admin/youtube-comments", label: "YouTube Grievances" },
-    { to: "/complaints/new", label: "File Grievance" },
-    { to: "/admin/users", label: "User Management" },
-    { to: "/admin/employees", label: "Employee Hub" },
-    { to: "/admin/regions", label: "Regional Scopes" },
-    { to: "/admin/stores", label: "Store Outlets" },
-    { to: "/admin/categories", label: "Issue Taxonomy" },
-    { to: "/admin/channels", label: "Ingestion Channels" },
-    { to: "/admin/sla", label: "SLA Matrices" },
-    { to: "/admin/audit-logs", label: "Audit Trails" },
-    { to: "/admin/settings", label: "System Config" },
+    { to: "/admin/dashboard", label: "Dashboard" },
+    { to: "/admin/complaints", label: "All Complaints" },
+    { to: "/complaints/new", label: "File Complaint" },
+    { to: "/admin/users", label: "Team & Users" },
+    { to: "/admin/settings", label: "Settings" },
   ];
 }
 

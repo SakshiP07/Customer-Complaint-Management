@@ -18,7 +18,7 @@ const admins = ["ADMIN", "SUPER_ADMIN"] as const;
 export const userRouter = Router();
 userRouter.use(authenticate);
 userRouter.get("/", userController.list);
-userRouter.post("/", authorize(...admins), validate(createUserSchema), userController.create);
+userRouter.post("/", authorize("ADMIN", "SUPER_ADMIN", "OPERATIONS_MANAGER"), validate(createUserSchema), userController.create);
 userRouter.get("/:id", userController.get);
 userRouter.patch("/:id", validate(patchUserSchema), userController.patch);
 userRouter.patch("/:id/status", authorize(...admins), validate(userStatusSchema), userController.status);

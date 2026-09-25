@@ -7,6 +7,7 @@ import { api, apiErrorMessage } from "../../api/client";
 import { Badge, Button, Empty, Input, Select, Spinner } from "../ui/Primitives";
 import { slaRemaining } from "../../lib/utils";
 import { useLookups, type Complaint } from "../../hooks/useLookups";
+import { useAuth } from "../../auth/AuthProvider";
 
 type Props = { detailBase: string; title: string; view?: "inbox" | "mine" | "escalated" | "overdue" };
 
@@ -53,6 +54,8 @@ export function ComplaintTable({ detailBase, title, view }: Props) {
   const [priority, setPriority] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [channelCode, setChannelCode] = useState("");
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, complaint: Complaint } | null>(null);
+  const { user } = useAuth();
 
 
   // Initialize search or channel from URL parameter
@@ -97,6 +100,36 @@ export function ComplaintTable({ detailBase, title, view }: Props) {
       qc.invalidateQueries({ queryKey: ["complaints"] });
       qc.invalidateQueries({ queryKey: ["my-summary"] });
       qc.invalidateQueries({ queryKey: ["agent-summary"] });
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status, notes }: { id: string, status: string, notes?: string }) => api.post(`/complaints/${id}/status`, { status, notes }),
+    onSuccess: () => {
+      toast.success("Status updated");
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      setContextMenu(null);
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
+  const resolveComplaint = useMutation({
+    mutationFn: async ({ id, resolution }: { id: string, resolution: string }) => api.post(`/complaints/${id}/resolve`, { resolution }),
+    onSuccess: () => {
+      toast.success("Complaint resolved");
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      setContextMenu(null);
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
+  const deleteComplaint = useMutation({
+    mutationFn: async (id: string) => api.delete(`/complaints/${id}`),
+    onSuccess: () => {
+      toast.success("Complaint deleted");
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      setContextMenu(null);
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
@@ -246,7 +279,17 @@ export function ComplaintTable({ detailBase, title, view }: Props) {
               </thead>
               <tbody className="divide-y dark:divide-white/[0.04] divide-slate-100">
                 {query.data.items.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
+                  <tr 
+                    key={c.id} 
+                    className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group cursor-context-menu"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      // Only show context menu if user is not CUSTOMER
+                      if (user?.role.code !== "CUSTOMER") {
+                        setContextMenu({ x: e.clientX, y: e.clientY, complaint: c });
+                      }
+                    }}
+                  >
                     <td className="px-4 py-3 font-mono font-semibold">
                       <Link
                         to={`${detailBase}/${c.id}`}
@@ -316,6 +359,65 @@ export function ComplaintTable({ detailBase, title, view }: Props) {
           </div>
         </div>
       ) : null}
+
+      {/* Context Menu for Long Press / Right Click */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
+          <div 
+            className="fixed z-50 bg-white dark:bg-[#12121A] border dark:border-white/[0.08] border-slate-200 rounded-xl shadow-xl py-1 min-w-[160px] text-xs font-semibold overflow-hidden" 
+            style={{ top: Math.min(contextMenu.y, window.innerHeight - 200), left: Math.min(contextMenu.x, window.innerWidth - 200) }}
+          >
+            <div className="px-3 py-2 border-b dark:border-white/[0.08] border-slate-100 mb-1">
+              <span className="dark:text-zinc-400 text-slate-500 uppercase tracking-wider text-[10px]">Actions for {contextMenu.complaint.complaintNumber}</span>
+            </div>
+            
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-white/[0.05] dark:text-zinc-200 text-slate-700 transition-colors"
+              onClick={() => updateStatus.mutate({ id: contextMenu.complaint.id, status: "IN_PROGRESS" })}
+            >
+              Start In-Progress
+            </button>
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-white/[0.05] dark:text-zinc-200 text-slate-700 transition-colors"
+              onClick={() => updateStatus.mutate({ id: contextMenu.complaint.id, status: "PENDING" })}
+            >
+              Mark Pending
+            </button>
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-white/[0.05] text-emerald-600 dark:text-emerald-400 transition-colors"
+              onClick={() => {
+                const resolution = prompt("Enter resolution details (required):");
+                if (resolution) resolveComplaint.mutate({ id: contextMenu.complaint.id, resolution });
+              }}
+            >
+              Resolve Complaint
+            </button>
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-white/[0.05] dark:text-zinc-200 text-slate-700 transition-colors"
+              onClick={() => updateStatus.mutate({ id: contextMenu.complaint.id, status: "CLOSED", notes: "Closed via quick action" })}
+            >
+              Close Ticket
+            </button>
+            
+            {(user?.role.code === "ADMIN" || user?.role.code === "SUPER_ADMIN") && (
+              <>
+                <div className="border-t dark:border-white/[0.08] border-slate-100 my-1"></div>
+                <button 
+                  className="w-full text-left px-4 py-2 hover:bg-red-500/10 text-red-600 dark:text-red-400 transition-colors"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to permanently delete complaint ${contextMenu.complaint.complaintNumber}?`)) {
+                      deleteComplaint.mutate(contextMenu.complaint.id);
+                    }
+                  }}
+                >
+                  Delete Complaint
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

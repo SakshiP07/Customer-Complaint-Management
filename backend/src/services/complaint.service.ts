@@ -376,6 +376,16 @@ export const complaintService = {
     return this.getById(user, updated.id);
   },
 
+  async delete(user: AuthUser, id: string, ip?: string | null) {
+    if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+      throw ApiError.forbidden("Only admins can delete complaints");
+    }
+    const complaint = await getScopedComplaint(user, id);
+    await prisma.complaint.delete({ where: { id: complaint.id } });
+    await writeAudit({ actor: user, action: "DELETE", entity: "Complaint", entityId: id, ipAddress: ip });
+    return true;
+  },
+
   async assign(user: AuthUser, id: string, agentId: string, reason?: string, ip?: string | null) {
     if (!ASSIGN_ROLES.includes(user.role)) {
       throw ApiError.forbidden("Only managers and admins can assign complaints");
