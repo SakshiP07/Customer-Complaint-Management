@@ -135,7 +135,18 @@ export function ComplaintDetail() {
   const mutate = useMutation({
     mutationFn: async ({ path, body }: { path: string; body?: unknown }) => api.post(path, body),
     onSuccess: (_res, vars) => {
-      toast.success(vars.path.includes("/messages") ? "Response saved" : "Updated");
+      const isDemoSend = typeof vars.body === "object" && vars.body !== null && (vars.body as any).delivery === "DEMO_SEND";
+      const isEmail = query.data?.channel?.code === "EMAIL";
+      
+      if (isDemoSend && isEmail) {
+         toast.success("Mail sent successfully!");
+      } else {
+         toast.success(vars.path.includes("/messages") ? "Response saved" : "Updated");
+      }
+      
+      if (vars.path.includes("/messages") || vars.path.includes("/comments")) {
+         setReply("");
+      }
       refresh();
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
@@ -442,7 +453,7 @@ export function ComplaintDetail() {
                       mutate.mutate({ path: `/complaints/${id}/messages`, body: { body: reply, delivery: "DEMO_SEND" } })
                     }
                   >
-                    {c.channel.code === "WEBSITE" ? "Send on Website Portal" : `Demo Send via ${c.channel.name}`}
+                    {c.channel.code === "WEBSITE" ? "Send on Website Portal" : c.channel.code === "EMAIL" ? "Send via Email" : `Demo Send via ${c.channel.name}`}
                   </Button>
                 </div>
               </div>
