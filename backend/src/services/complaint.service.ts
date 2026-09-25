@@ -10,6 +10,7 @@ import { slaService } from "./sla.service.js";
 import { notificationService } from "./notification.service.js";
 import { storageService } from "../integrations/storage/storage.service.js";
 import { getChannelAdapter } from "../integrations/channels/adapters.js";
+import { sendEmail } from "../utils/mailer.js";
 
 const STAFF_ROLES = ["AGENT", "OPERATIONS_MANAGER", "REGIONAL_MANAGER", "ADMIN", "SUPER_ADMIN"];
 const ASSIGN_ROLES = ["OPERATIONS_MANAGER", "REGIONAL_MANAGER", "ADMIN", "SUPER_ADMIN"];
@@ -522,6 +523,13 @@ export const complaintService = {
         entityId: id,
       });
     }
+    if (complaint.channel.code === "EMAIL" && complaint.customer.email) {
+      await sendEmail(
+        complaint.customer.email,
+        `Re: Complaint ${complaint.complaintNumber} Resolved`,
+        `Your complaint ${complaint.complaintNumber} has been resolved.\n\nResolution details:\n${resolution}\n\nThank you,\nCustomer Support Team`
+      );
+    }
     await writeAudit({ actor: user, action: "RESOLVE", entity: "Complaint", entityId: id, ipAddress: ip });
     return this.getById(user, id);
   },
@@ -657,6 +665,13 @@ export const complaintService = {
         entityId: id,
       });
     }
+    if (visibility === "CUSTOMER" && user.role !== "CUSTOMER" && complaint.channel.code === "EMAIL" && complaint.customer.email) {
+      await sendEmail(
+        complaint.customer.email,
+        `Re: Update on Complaint ${complaint.complaintNumber}`,
+        `We have an update regarding your complaint ${complaint.complaintNumber}:\n\n${comment}\n\nThank you,\nCustomer Support Team`
+      );
+    }
     if (visibility === "CUSTOMER" && user.role === "CUSTOMER" && complaint.assignedAgentId) {
       await notificationService.dispatch({
         userId: complaint.assignedAgentId,
@@ -674,8 +689,24 @@ export const complaintService = {
   async addMessage(user: AuthUser, id: string, body: string, delivery: "PREPARED" | "DEMO_SEND", ip?: string | null) {
     const complaint = await getScopedComplaint(user, id);
     if (user.role === "CUSTOMER") throw ApiError.forbidden();
-    const liveChannel = complaint.channel.code === "WEBSITE";
+    const liveChannel = complaint.channel.code === "WEBSITE" || complaint.channel.code === "EMAIL";
     const status = delivery === "DEMO_SEND" ? (liveChannel ? "SENT" : "DEMO_SENT") : "PREPARED";
+    
+    if (status === "SENT" && complaint.channel.code === "EMAIL" && complaint.customer.email) {
+      // Extract original message ID from subject for threading
+      const messageIdMatch = complaint.subject?.match(/\[(.*?)\]$/);
+      const originalMessageId = messageIdMatch ? messageIdMatch[1] : undefined;
+      const cleanSubject = complaint.subject ? complaint.subject.replace(/\s*\[.*?\]$/, '') : `Complaint ${complaint.complaintNumber}`;
+
+      // Fire and forget so the API responds instantly
+      sendEmail(
+        complaint.customer.email,
+        `Re: ${cleanSubject}`,
+        body,
+        undefined,
+        originalMessageId
+      ).catch(e => logger.error("Background email send failed", e));
+    }
     const message = await ensureConversationMessage(id, {
       senderType: "EMPLOYEE",
       authorId: user.id,
