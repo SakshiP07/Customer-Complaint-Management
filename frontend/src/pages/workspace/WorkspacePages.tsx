@@ -308,18 +308,49 @@ export function RecurringIssuesPage() {
 
 export function ReportsPage() {
   const q = useQuery({
-    queryKey: ["report"],
-    queryFn: async () => (await api.get("/reports", { params: { type: "weekly" } })).data.data,
+    queryKey: ["resolved-queries"],
+    queryFn: async () => (await api.get("/complaints", { params: { status: "RESOLVED", pageSize: 50 } })).data.data as Array<any>,
   });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Reports</h1>
+        <h1 className="text-2xl font-semibold">Resolved Queries Report</h1>
         <a className="text-sm text-blue-700 hover:underline" href={`${API_BASE}/reports/csv?type=weekly`}>Download weekly CSV</a>
       </div>
-      <Card>
-        <pre className="overflow-auto text-xs">{JSON.stringify(q.data, null, 2)}</pre>
-      </Card>
+      <div className="table-wrap">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b dark:border-white/[0.08] border-slate-200 dark:bg-[#12121A] bg-slate-100/80 dark:text-zinc-300 text-slate-700 uppercase tracking-wider text-xs">
+            <tr>
+              <th className="px-4 py-3 font-bold">Ticket Ref</th>
+              <th className="px-4 py-3 font-bold">Customer</th>
+              <th className="px-4 py-3 font-bold">Resolved By (Agent)</th>
+              <th className="px-4 py-3 font-bold">Resolved At</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y dark:divide-white/[0.05] divide-slate-200">
+            {q.data?.map((c) => (
+              <tr key={c.id} className="dark:hover:bg-white/[0.02] hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-3 font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  <Link to={`/complaints/${c.id}`}>{c.complaintNumber}</Link>
+                </td>
+                <td className="px-4 py-3 dark:text-zinc-200 text-slate-800 font-medium">{c.customer?.name}</td>
+                <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">{c.assignedAgent?.name || "System/Unknown"}</td>
+                <td className="px-4 py-3 text-xs dark:text-zinc-400 text-slate-500 font-medium">
+                  {c.resolvedAt ? new Date(c.resolvedAt).toLocaleString() : new Date(c.updatedAt).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+            {q.data?.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center text-sm dark:text-zinc-400 text-slate-500">
+                  No resolved queries found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

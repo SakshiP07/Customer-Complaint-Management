@@ -3,6 +3,7 @@ import { api, apiErrorMessage } from "../../api/client";
 import { Button, Card, Input, Label } from "../../components/ui/Primitives";
 import { DashboardCharts } from "../../components/dashboard/DashboardCharts";
 import { toast } from "sonner";
+import { useAuth } from "../../auth/AuthProvider";
 
 function CatalogManager({
   title,
@@ -77,13 +78,87 @@ export function AdminDashboard() {
 }
 
 export function UsersPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["users"],
     queryFn: async () => (await api.get("/users", { params: { pageSize: 50 } })).data.data as Array<{ id: string; name: string; email: string; isActive: boolean; role: { name: string } }>,
   });
+  
+  const lookups = useQuery({
+    queryKey: ["lookups"],
+    queryFn: async () => (await api.get("/lookups")).data.data as { roles: Array<{ id: string; code: string; name: string }> },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (body: Record<string, string>) => api.post("/users", body),
+    onSuccess: () => {
+      toast.success("User created successfully");
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
+  const availableRoles = lookups.data?.roles.filter(r => 
+    user?.role.code === "OPERATIONS_MANAGER" 
+      ? ["AGENT", "CUSTOMER"].includes(r.code)
+      : true
+  ) || [];
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-extrabold tracking-tight dark:text-white text-slate-900 font-display">User Management</h1>
+      
+      <Card className="glass-card">
+        <h2 className="text-sm font-bold dark:text-white text-slate-900 mb-4">Create New User</h2>
+        <form
+          className="grid gap-4 md:grid-cols-4 items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = new FormData(e.currentTarget);
+            createMutation.mutate({
+              name: String(form.get("name")),
+              email: String(form.get("email")),
+              password: String(form.get("password")),
+              roleId: String(form.get("roleId")),
+            });
+            e.currentTarget.reset();
+          }}
+        >
+          <div>
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" name="name" required placeholder="John Doe" />
+          </div>
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" required placeholder="john@example.com" />
+          </div>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" name="password" type="password" required placeholder="Secure pass" />
+          </div>
+          <div>
+            <Label htmlFor="roleId">Role</Label>
+            <select
+              id="roleId"
+              name="roleId"
+              required
+              className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] px-3 py-2 text-sm placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="" disabled selected>Select a role...</option>
+              {availableRoles.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-4 flex justify-end">
+            <Button type="submit" variant="primary" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating..." : "Create User"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
       <div className="table-wrap">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b dark:border-white/[0.08] border-slate-200 dark:bg-[#12121A] bg-slate-100/80 dark:text-zinc-300 text-slate-700 uppercase tracking-wider text-xs">

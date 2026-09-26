@@ -61,6 +61,14 @@ export const complaintController = {
       next(e);
     }
   },
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      await complaintService.delete(req.authUser!, routeParam(req.params.id), clientIp(req));
+      return success(res, null, "Complaint deleted");
+    } catch (e) {
+      next(e);
+    }
+  },
   async assign(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await complaintService.assign(req.authUser!, routeParam(req.params.id), req.body.agentId, req.body.reason, clientIp(req));

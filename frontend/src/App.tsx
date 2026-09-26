@@ -70,7 +70,6 @@ export default function App() {
           <Route path="/agent/escalated/:id" element={<ComplaintDetailPage />} />
           <Route path="/agent/overdue" element={<ComplaintsListPage title="Overdue" base="/agent/overdue" view="overdue" />} />
           <Route path="/agent/overdue/:id" element={<ComplaintDetailPage />} />
-          <Route path="/agent/ai" element={<AiAssistantPage />} />
           <Route path="/agent/notifications" element={<NotificationsPage />} />
           <Route path="/agent/performance" element={<AgentPerformancePage />} />
           <Route path="/agent/profile" element={<ProfilePage />} />
@@ -90,6 +89,7 @@ export default function App() {
           <Route path="/manager/sla" element={<SlaMonitoringPage />} />
           <Route path="/manager/recurring-issues" element={<RecurringIssuesPage />} />
           <Route path="/manager/reports" element={<ReportsPage />} />
+          <Route path="/manager/users" element={<UsersPage />} />
           <Route path="/manager/audit-logs" element={<AuditPage path="/analytics/audit-logs" />} />
           <Route path="/manager/notifications" element={<NotificationsPage />} />
           <Route path="/manager/profile" element={<ProfilePage />} />
