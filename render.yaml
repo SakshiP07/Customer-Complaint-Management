@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 10000
       - key: CLIENT_URL
-        value: https://frontend-sage-sigma-83.vercel.app
+        sync: false
       - key: API_PREFIX
         value: /api/v1
       - key: DATABASE_URL
