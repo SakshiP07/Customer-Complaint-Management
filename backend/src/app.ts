@@ -17,9 +17,22 @@ export function createApp() {
   const app = express();
   app.set("trust proxy", 1);
   app.use(helmet());
+  const allowedOrigins = env.CLIENT_URL.split(",").map((s) => s.trim().replace(/\/$/, ""));
   app.use(
     cors({
-      origin: env.CLIENT_URL,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const cleanOrigin = origin.replace(/\/$/, "");
+        if (
+          allowedOrigins.includes(cleanOrigin) ||
+          allowedOrigins.includes("*") ||
+          cleanOrigin.endsWith(".vercel.app") ||
+          cleanOrigin.includes("localhost")
+        ) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Not allowed by CORS: ${origin}`));
+      },
       credentials: true,
     }),
   );
