@@ -3,10 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
-  Globe,
-  Mail,
   Sparkles,
-  Video,
   Zap,
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthProvider";
