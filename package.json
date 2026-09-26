@@ -23,6 +23,7 @@
     "db:reset": "npm run prisma:reset --workspace=backend"
   },
   "devDependencies": {
+    "@types/node": "^26.6.3",
     "concurrently": "^9.1.2"
   },
   "engines": {
