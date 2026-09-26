@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || "/api/v1";
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || "https://complaint-backend-vk5t.onrender.com/api/v1";
 
 export const api = axios.create({
   baseURL: API_BASE,
