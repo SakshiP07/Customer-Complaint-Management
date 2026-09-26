@@ -20,15 +20,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const form = useForm({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } });
 
-  const handleDemoLogin = async (email: string) => {
-    try {
-      const user = await login(email, "DemoPass123!");
-      navigate(homeFor(user.role.code));
-    } catch (error) {
-      toast.error(apiErrorMessage(error));
-    }
-  };
-
   return (
     <div className="relative flex min-h-screen items-center justify-center dark:bg-[#050507] bg-[#F8FAFC] px-4 py-12 dark:text-[#EDEDED] text-slate-900 overflow-hidden">
       {/* Top right ThemeToggle */}
@@ -82,31 +73,6 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {/* Quick Demo Switcher */}
-          <div className="mt-6 pt-5 border-t dark:border-white/[0.08] border-slate-200">
-            <p className="text-[11px] font-medium dark:text-zinc-400 text-slate-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-              1-Click Demo Accounts (Pass: DemoPass123!)
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: "Super Admin", email: "admin@example.com" },
-                { label: "Manager", email: "manager@example.com" },
-                { label: "Agent", email: "agent@example.com" },
-                { label: "Customer", email: "customer@example.com" },
-              ].map((role) => (
-                <button
-                  key={role.email}
-                  type="button"
-                  onClick={() => handleDemoLogin(role.email)}
-                  className="rounded-xl border dark:border-white/[0.08] border-slate-200 dark:bg-[#14141C] bg-slate-50 p-2 text-left hover:border-indigo-500/50 hover:bg-slate-100 dark:hover:bg-[#1A1A24] transition-all cursor-pointer group shadow-sm"
-                >
-                  <p className="text-xs font-semibold dark:text-white text-slate-900 group-hover:text-indigo-600 dark:group-hover:text-indigo-300">{role.label}</p>
-                  <p className="text-[10px] dark:text-zinc-500 text-slate-500 truncate">{role.email}</p>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div className="mt-5 text-center text-xs dark:text-zinc-400 text-slate-500">
             Don't have an account?{" "}

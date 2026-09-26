@@ -1,33 +1,14 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useAuth } from "../../auth/AuthProvider";
 import { Button } from "../../components/ui/Primitives";
-import { homeFor, type Role } from "../../lib/utils";
 import { ThemeToggle } from "../../components/ui/ThemeToggle";
 
 export function LandingPage() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const [loggingInRole, setLoggingInRole] = useState<string | null>(null);
-
-  const handleQuickLogin = async (email: string, roleCode: Role) => {
-    try {
-      setLoggingInRole(roleCode);
-      const user = await login(email, "DemoPass123!");
-      navigate(homeFor(user.role.code));
-    } catch {
-      navigate("/login");
-    } finally {
-      setLoggingInRole(null);
-    }
-  };
-
   return (
     <div className="relative min-h-screen transition-colors duration-200 dark:bg-[#050508] bg-[#F8FAFC] dark:text-[#EDEDED] text-slate-900 overflow-x-hidden font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
       {/* Ambient Mesh Glows */}
@@ -53,7 +34,6 @@ export function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-6 text-sm font-bold dark:text-zinc-200 text-slate-700">
-            <a href="#accounts" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Demo Logins</a>
             <Link to="/complaints/track" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Track Ticket</Link>
           </div>
 
@@ -113,77 +93,7 @@ export function LandingPage() {
         {/* Live Interactive Triage Widget with Frosted Glass */}
 
 
-        {/* Demo Accounts Quick-Login Section */}
-        <section id="accounts" className="mt-28 space-y-8">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-3.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 shadow-xs">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              1-Click Interactive Demo Login
-            </div>
-            <h2 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight dark:text-white text-slate-900">
-              Test any persona instantly.
-            </h2>
-            <p className="text-base dark:text-zinc-400 text-slate-600 max-w-lg mx-auto font-medium">
-              Click any role card below to log directly into its dedicated dashboard with pre-seeded data.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              {
-                role: "SUPER_ADMIN" as Role,
-                email: "admin@example.com",
-                name: "Super Admin",
-                badge: "Full System Governance",
-                desc: "SLA configuration, tenant settings, employee audit logs, analytics.",
-              },
-              {
-                role: "OPERATIONS_MANAGER" as Role,
-                email: "manager@example.com",
-                name: "Operations Manager",
-                badge: "Escalation & SLA",
-                desc: "Monitor live agent queues, manage bottlenecks, resolve escalations.",
-              },
-              {
-                role: "AGENT" as Role,
-                email: "agent@example.com",
-                name: "Frontline Agent",
-                badge: "Triage & Response",
-                desc: "Claim incoming tickets, respond with AI drafts, update ticket status.",
-              },
-              {
-                role: "CUSTOMER" as Role,
-                email: "customer@example.com",
-                name: "Customer",
-                badge: "Portal & Tracking",
-                desc: "Submit new grievances, review live status, receive notifications.",
-              },
-            ].map((acc) => (
-              <div
-                key={acc.email}
-                className="glass-card rounded-2xl p-6 flex flex-col justify-between border hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-bold dark:text-white text-slate-900 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{acc.name}</span>
-                    <span className="text-[10px] dark:text-zinc-400 text-slate-500 font-mono font-bold uppercase">{acc.badge}</span>
-                  </div>
-                  <p className="mt-3 text-xs dark:text-zinc-300 text-slate-600 leading-relaxed font-medium">{acc.desc}</p>
-                  <p className="mt-4 font-mono text-xs text-indigo-600 dark:text-indigo-400 font-bold truncate">{acc.email}</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="mt-6 w-full text-xs font-bold"
-                  disabled={loggingInRole === acc.role}
-                  onClick={() => handleQuickLogin(acc.email, acc.role)}
-                >
-                  {loggingInRole === acc.role ? "Entering..." : `Log in as ${acc.name}`}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Bottom CTA with Glassmorphic Gradient */}
         <section className="mt-28 rounded-3xl glass-card p-8 md:p-14 text-center border shadow-2xl space-y-6">
