@@ -5,7 +5,6 @@ import {
   LogOut,
   Menu,
   Search,
-  Sparkles,
   X,
   Zap,
 } from "lucide-react";
@@ -103,14 +102,6 @@ export function AppShell() {
     }
   };
 
-  const handleRoleQuickSwitch = async (email: string) => {
-    try {
-      const u = await login(email, "DemoPass123!");
-      navigate(homeFor(u.role.code));
-    } catch {
-      // ignore
-    }
-  };
 
   return (
     <div className="min-h-screen flex font-sans transition-colors duration-200 dark:bg-[#050508] bg-[#F8FAFC] dark:text-[#EDEDED] text-slate-900 selection:bg-indigo-500/30 selection:text-indigo-200">
@@ -176,41 +167,7 @@ export function AppShell() {
           ))}
         </nav>
 
-        {/* Quick Demo Role Switcher in Sidebar Footer */}
-        <div className="border-t dark:border-white/[0.08] border-slate-200 p-4 space-y-3">
-          <div className="glass-card rounded-xl p-3 border dark:border-white/[0.08] border-slate-200">
-            <p className="text-[11px] font-bold dark:text-zinc-400 text-slate-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-500" /> Demo Switcher
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold">
-              <button
-                onClick={() => handleRoleQuickSwitch("admin@example.com")}
-                className="rounded-lg dark:bg-white/[0.06] bg-slate-100 px-2.5 py-1.5 dark:text-zinc-200 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-white dark:hover:bg-indigo-600/30 text-left truncate transition-colors cursor-pointer"
-              >
-                Admin
-              </button>
-              <button
-                onClick={() => handleRoleQuickSwitch("manager@example.com")}
-                className="rounded-lg dark:bg-white/[0.06] bg-slate-100 px-2.5 py-1.5 dark:text-zinc-200 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-white dark:hover:bg-indigo-600/30 text-left truncate transition-colors cursor-pointer"
-              >
-                Manager
-              </button>
-              <button
-                onClick={() => handleRoleQuickSwitch("agent@example.com")}
-                className="rounded-lg dark:bg-white/[0.06] bg-slate-100 px-2.5 py-1.5 dark:text-zinc-200 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-white dark:hover:bg-indigo-600/30 text-left truncate transition-colors cursor-pointer"
-              >
-                Agent
-              </button>
-              <button
-                onClick={() => handleRoleQuickSwitch("customer@example.com")}
-                className="rounded-lg dark:bg-white/[0.06] bg-slate-100 px-2.5 py-1.5 dark:text-zinc-200 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-white dark:hover:bg-indigo-600/30 text-left truncate transition-colors cursor-pointer"
-              >
-                Customer
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
+        <div className="border-t dark:border-white/[0.08] border-slate-200 p-4 space-y-3">          <div className="flex items-center justify-between pt-1">
             <NavLink
               to={`/${user?.role.code?.toLowerCase()}/profile`}
               className="text-sm font-semibold dark:text-zinc-400 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
