@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { api } from "../../api/client";
+import { api, API_BASE } from "../../api/client";
 import { DashboardCharts } from "../../components/dashboard/DashboardCharts";
 import { ComplaintTable } from "../../components/complaints/ComplaintTable";
 import { ComplaintDetail } from "../../components/complaints/ComplaintDetail";
@@ -315,7 +315,7 @@ export function ReportsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Reports</h1>
-        <a className="text-sm text-blue-700" href="/api/v1/reports/csv?type=weekly">Download weekly CSV</a>
+        <a className="text-sm text-blue-700 hover:underline" href={`${API_BASE}/reports/csv?type=weekly`}>Download weekly CSV</a>
       </div>
       <Card>
         <pre className="overflow-auto text-xs">{JSON.stringify(q.data, null, 2)}</pre>

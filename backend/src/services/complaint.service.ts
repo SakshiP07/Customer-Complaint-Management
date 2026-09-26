@@ -11,6 +11,7 @@ import { notificationService } from "./notification.service.js";
 import { storageService } from "../integrations/storage/storage.service.js";
 import { getChannelAdapter } from "../integrations/channels/adapters.js";
 import { sendEmail } from "../utils/mailer.js";
+import { logger } from "../utils/logger.js";
 
 const STAFF_ROLES = ["AGENT", "OPERATIONS_MANAGER", "REGIONAL_MANAGER", "ADMIN", "SUPER_ADMIN"];
 const ASSIGN_ROLES = ["OPERATIONS_MANAGER", "REGIONAL_MANAGER", "ADMIN", "SUPER_ADMIN"];
