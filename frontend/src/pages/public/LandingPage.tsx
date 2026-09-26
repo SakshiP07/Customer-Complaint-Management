@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  CheckCircle2,
   Sparkles,
   Zap,
 } from "lucide-react";

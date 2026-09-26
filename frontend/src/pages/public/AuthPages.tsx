@@ -3,7 +3,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Zap, Sparkles } from "lucide-react";
+import { Zap } from "lucide-react";
 import { useAuth } from "../../auth/AuthProvider";
 import { homeFor } from "../../lib/utils";
 import { apiErrorMessage } from "../../api/client";
