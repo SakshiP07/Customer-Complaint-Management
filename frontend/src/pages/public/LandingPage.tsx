@@ -2,76 +2,21 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
-  Bot,
   CheckCircle2,
-  Clock,
-  Cpu,
   Globe,
-  Layers,
   Mail,
-  ShieldCheck,
   Sparkles,
-  Users,
   Video,
   Zap,
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthProvider";
-import { Button, BentoCard, Badge } from "../../components/ui/Primitives";
+import { Button } from "../../components/ui/Primitives";
 import { homeFor, type Role } from "../../lib/utils";
 import { ThemeToggle } from "../../components/ui/ThemeToggle";
-
-const SAMPLE_COMPLAINTS = [
-  {
-    id: "CMP-2026-0941",
-    channel: "Gmail IMAP",
-    channelIcon: Mail,
-    channelColor: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
-    title: "Overcharged on monthly enterprise subscription invoice",
-    customer: "Priya Sharma (priya@acmecorp.in)",
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    sentiment: "Frustrated (-0.82)",
-    aiCategory: "Billing & Invoicing",
-    confidence: "99.4%",
-    sla: "1h 45m left",
-    agent: "Vikram Mehta (Senior Billing)",
-  },
-  {
-    id: "CMP-2026-0942",
-    channel: "YouTube Comments",
-    channelIcon: Video,
-    channelColor: "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20",
-    title: "Order delivered with broken seal and damaged packaging",
-    customer: "Rahul Deshmukh (via YouTube @rahul_vlogs)",
-    priority: "CRITICAL",
-    status: "ESCALATED",
-    sentiment: "Negative (-0.94)",
-    aiCategory: "Damaged Delivery",
-    confidence: "98.7%",
-    sla: "25m left",
-    agent: "Logistics Response Team",
-  },
-  {
-    id: "CMP-2026-0943",
-    channel: "Web Portal",
-    channelIcon: Globe,
-    channelColor: "text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20",
-    title: "Store branch staff refused return within 7-day window",
-    customer: "Anita Roy (Mumbai Bandra)",
-    priority: "MEDIUM",
-    status: "CATEGORISED",
-    sentiment: "Neutral (-0.35)",
-    aiCategory: "Store Experience",
-    confidence: "96.1%",
-    sla: "5h 10m left",
-    agent: "Regional Retail Ops",
-  },
-];
 
 export function LandingPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [activeSample, setActiveSample] = useState(0);
   const [loggingInRole, setLoggingInRole] = useState<string | null>(null);
 
   const handleQuickLogin = async (email: string, roleCode: Role) => {
@@ -85,8 +30,6 @@ export function LandingPage() {
       setLoggingInRole(null);
     }
   };
-
-  const activeTicket = SAMPLE_COMPLAINTS[activeSample];
 
   return (
     <div className="relative min-h-screen transition-colors duration-200 dark:bg-[#050508] bg-[#F8FAFC] dark:text-[#EDEDED] text-slate-900 overflow-x-hidden font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
