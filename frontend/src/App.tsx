@@ -7,7 +7,6 @@ import { NewComplaintPage, TrackComplaintPage } from "./pages/public/ComplaintPa
 import {
   AgentDashboard,
   AgentPerformancePage,
-  AiAssistantPage,
   ComplaintDetailPage,
   ComplaintsListPage,
   CustomerDashboard,
